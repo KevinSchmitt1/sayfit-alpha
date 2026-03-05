@@ -127,6 +127,13 @@ sayfit-alpha/
 ---
 
 ## Usage Modes
+### Voice Recording Mode
+```bash
+python main.py --record                    # record 10s from mic → full pipeline
+python main.py --record --duration 15      # record 15 seconds
+python main.py --wav path/to/audio.wav     # transcribe existing .wav → full pipeline
+```
+
 
 ### Interactive Mode (default)
 ```bash
@@ -152,12 +159,6 @@ Where the input JSON looks like:
 }
 ```
 
-### Voice Recording Mode
-```bash
-python main.py --record                    # record 10s from mic → full pipeline
-python main.py --record --duration 15      # record 15 seconds
-python main.py --wav path/to/audio.wav     # transcribe existing .wav → full pipeline
-```
 
 ### Show Configuration
 ```bash
