@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "item_name": "pepperoni pizza",
+      "matched_name": "PEPPERONI PIZZA",
+      "matched_doc_id": "usda_12345",
+      "source": "usda",
+      "brand": "",
+      "amount_grams": 250,
+      "unit": "g",
+      "processing_description": "unspecified",
+      "confidence": "high",
+      "confidence_note": "",
+      "nutrition": {
+        "calories": 972.5,
+        "protein": 42.3,
+        "fat": 26.5,
+        "carbs": 101.0
+      },
+      "date_time": "2026-03-05T12:30:00"
+    },
+    {
+      "item_name": "egg",
+      "matched_name": "EGG, WHOLE, RAW",
+      "matched_doc_id": "usda_99001",
+      "source": "usda",
+      "brand": "",
+      "amount_grams": 180,
+      "unit": "g",
+      "processing_description": "unspecified",
+      "confidence": "high",
+      "confidence_note": "3 large eggs × 60g each = 180g",
+      "nutrition": {
+        "calories": 257.4,
+        "protein": 22.7,
+        "fat": 17.1,
+        "carbs": 1.3
+      },
+      "date_time": "2026-03-05T12:30:00"
+    }
+  ]
+}

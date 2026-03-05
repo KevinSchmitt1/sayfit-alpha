@@ -1,0 +1,22 @@
+{
+  "items": {
+    "item1": {
+      "item_name": "pepperoni pizza",
+      "quantity_raw": "1",
+      "description": "unspecified",
+      "date_time": "2026-03-05T12:30:00",
+      "uid": "user_001"
+    },
+    "item2": {
+      "item_name": "egg",
+      "quantity_raw": "3",
+      "description": "unspecified",
+      "date_time": "2026-03-05T12:30:00",
+      "uid": "user_001"
+    }
+  },
+  "queries": [
+    "pepperoni pizza (unspecified)",
+    "egg (unspecified)"
+  ]
+}

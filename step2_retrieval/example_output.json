@@ -1,0 +1,73 @@
+{
+  "items": [
+    {
+      "query": "pepperoni pizza (unspecified)",
+      "core_name": "pepperoni pizza",
+      "candidates": [
+        {
+          "doc_id": "usda_12345",
+          "source": "usda",
+          "item_name": "PEPPERONI PIZZA",
+          "brand": "",
+          "raw_score": 0.92,
+          "adjusted_score": 0.92,
+          "nutrition_per_100g": {
+            "calories": 389.0,
+            "protein": 16.9,
+            "fat": 10.6,
+            "carbs": 40.4
+          },
+          "portion_info": {
+            "serving_size": "",
+            "portion_description": "1 slice (125g)",
+            "gram_weight": 125.0
+          }
+        },
+        {
+          "doc_id": "off_67890",
+          "source": "openfoodfacts",
+          "item_name": "pepperoni pizza",
+          "brand": "DiGiorno",
+          "raw_score": 0.89,
+          "adjusted_score": 0.89,
+          "nutrition_per_100g": {
+            "calories": 270.0,
+            "protein": 11.0,
+            "fat": 12.0,
+            "carbs": 28.0
+          },
+          "portion_info": {
+            "serving_size": "1 serving (142g)",
+            "portion_description": "",
+            "gram_weight": null
+          }
+        }
+      ]
+    },
+    {
+      "query": "egg (unspecified)",
+      "core_name": "egg",
+      "candidates": [
+        {
+          "doc_id": "usda_99001",
+          "source": "usda",
+          "item_name": "EGG, WHOLE, RAW",
+          "brand": "",
+          "raw_score": 0.88,
+          "adjusted_score": 0.83,
+          "nutrition_per_100g": {
+            "calories": 143.0,
+            "protein": 12.6,
+            "fat": 9.5,
+            "carbs": 0.7
+          },
+          "portion_info": {
+            "serving_size": "",
+            "portion_description": "1 large (50g)",
+            "gram_weight": 50.0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+# SayFit Alpha – Requirements
+# ============================
+
+# --- Core pipeline ---
+openai>=1.10.0              # OpenAI-compatible client (used for Groq API)
+python-dotenv>=1.0.0        # .env file loading
+
+# --- Retrieval / RAG ---
+faiss-cpu>=1.7.4            # FAISS vector search (CPU version)
+sentence-transformers>=2.2.0 # Sentence embeddings (all-MiniLM-L6-v2)
+
+# --- Data handling ---
+pandas>=2.0.0
+numpy>=1.23.0
+
+# --- Voice input (Step 0) ---
+sounddevice>=0.4.6
+scipy>=1.10.0
+openai-whisper>=20231117
+# torch is already pulled in by sentence-transformers
+
+# --- Dev / EDA (optional) ---
+# setuptools>=68
+# wheel>=0.41
+# matplotlib
+# seaborn
+# ipykernel
+# duckdb
