@@ -213,6 +213,8 @@ Examples:
     parser.add_argument("--text", type=str, help="Direct text input (what you ate)")
     parser.add_argument("--uid", type=str, default="default_user", help="User ID")
     parser.add_argument("--build-index", action="store_true", help="Build FAISS index and exit")
+    parser.add_argument("--sources", nargs="+", default=["off"], choices=["off", "usda"],
+                        help="Which databases to index (default: off only)")
     parser.add_argument("--show-config", action="store_true", help="Print configuration and exit")
     args = parser.parse_args()
 
@@ -224,7 +226,7 @@ Examples:
     # build index only
     if args.build_index:
         from step2_retrieval.build_index import build_index
-        build_index()
+        build_index(sources=args.sources)
         return
 
     # ensure index exists
