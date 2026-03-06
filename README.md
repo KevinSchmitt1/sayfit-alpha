@@ -13,6 +13,7 @@ SayFit uses a RAG (Retrieval-Augmented Generation) pipeline to convert natural l
 git clone <repo-url> && cd sayfit-alpha
 
 # 2. Create & activate a virtual environment
+# use python version 3.14.0 for best compatibility
 python -m venv .venv
 source .venv/bin/activate   # macOS/Linux
 # .venv\Scripts\activate    # Windows
