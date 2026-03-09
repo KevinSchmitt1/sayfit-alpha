@@ -24,7 +24,7 @@ for d in [DATA_DIR, INDEX_DIR, CALIBRATION_DIR, OUTPUTS_DIR, INPUTS_DIR]:
 # ── env ──────────────────────────────────────────────────────────────────────
 load_dotenv(ROOT_DIR / ".env")
 
-GROQ_API_KEY = os.getenv("GROK_API_KEY", "").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 if not GROQ_API_KEY:
     print("[WARNING] GROK_API_KEY not found in .env – LLM calls will fail.")
 

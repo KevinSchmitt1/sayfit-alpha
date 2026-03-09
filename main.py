@@ -48,17 +48,34 @@ def _ensure_index():
         return False
 
 
+def _make_run_dir() -> Path:
+    """Create and return outputs/<date>/run_NNN/ for this run."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    date_dir = config.OUTPUTS_DIR / today
+    date_dir.mkdir(parents=True, exist_ok=True)
+
+    # find next run number
+    existing = sorted(date_dir.glob("run_*"))
+    next_n = len(existing) + 1
+    run_dir = date_dir / f"run_{next_n:03d}"
+    run_dir.mkdir()
+    return run_dir
+
+
 def run_pipeline(text: str, date_time: str = "", uid: str = "default_user"):
     """
     Run the full pipeline on a single text input.
 
     Returns the final reranker output dict.
     """
+    run_dir = _make_run_dir()
+    print(f"   📁 Run output: {run_dir}")
+
     # ── Step 1: Extraction ───────────────────────────────────────────────
     extraction = extract_items(text, date_time=date_time, uid=uid)
 
     # save intermediate
-    ext_path = config.OUTPUTS_DIR / "step1_extraction_output.json"
+    ext_path = run_dir / "step1_extraction_output.json"
     with open(ext_path, "w") as f:
         json.dump(extraction, f, indent=2)
     print(f"   💾 Extraction saved: {ext_path}")
@@ -72,7 +89,7 @@ def run_pipeline(text: str, date_time: str = "", uid: str = "default_user"):
     from step2_retrieval.retriever import retrieve
     retrieval = retrieve(queries)
 
-    ret_path = config.OUTPUTS_DIR / "step2_retrieval_output.json"
+    ret_path = run_dir / "step2_retrieval_output.json"
     with open(ret_path, "w") as f:
         json.dump(retrieval, f, indent=2)
     print(f"   💾 Retrieval saved: {ret_path}")
@@ -80,7 +97,7 @@ def run_pipeline(text: str, date_time: str = "", uid: str = "default_user"):
     # ── Step 3: Reranker ─────────────────────────────────────────────────
     reranked = rerank_all(extraction, retrieval)
 
-    rer_path = config.OUTPUTS_DIR / "step3_reranker_output.json"
+    rer_path = run_dir / "step3_reranker_output.json"
     with open(rer_path, "w") as f:
         json.dump(reranked, f, indent=2)
     print(f"   💾 Reranker saved: {rer_path}")
@@ -212,6 +229,7 @@ Examples:
     parser.add_argument("--input", type=str, help="Path to voice-recorder JSON")
     parser.add_argument("--text", type=str, help="Direct text input (what you ate)")
     parser.add_argument("--uid", type=str, default="default_user", help="User ID")
+    parser.add_argument("--test-folder", type=str, help="Run all test JSONs in a folder")
     parser.add_argument("--build-index", action="store_true", help="Build FAISS index and exit")
     parser.add_argument("--show-config", action="store_true", help="Print configuration and exit")
     args = parser.parse_args()
@@ -275,6 +293,40 @@ Examples:
         if reranked.get("results"):
             reranked = ask_user_corrections(reranked, uid=data.get("UID", args.uid))
             save_log(reranked)
+
+
+    elif args.test_folder:
+        # ── Test mode: run all JSON inputs in folder ─────────────────────
+        test_path = Path(args.test_folder)
+
+        if not test_path.exists():
+            print(f"❌ Test folder not found: {test_path}")
+            sys.exit(1)
+
+        files = sorted(test_path.glob("*.json"))
+
+        if not files:
+            print("❌ No JSON test files found.")
+            sys.exit(1)
+
+        print(f"\n🧪 Running {len(files)} tests...\n")
+
+        for f in files:
+            print("=" * 60)
+            print(f"TEST: {f.name}")
+
+            with open(f) as jf:
+                data = json.load(jf)
+
+            reranked = run_pipeline(
+                text=data["text"],
+                date_time=data.get("date_time", datetime.now().isoformat()),
+                uid=data.get("UID", args.uid),
+            )
+
+            print("=" * 60 + "\n")
+
+
 
     elif args.text:
         # direct text mode
