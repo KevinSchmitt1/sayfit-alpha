@@ -6,6 +6,8 @@
 
 - description is kind of useless at the moment (mostly unspecified) and not used in the retriever
 
+- GROQ-API key instead of GROK-API key
+
 
 
 # to try
