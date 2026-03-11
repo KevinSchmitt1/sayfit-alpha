@@ -1,18 +1,18 @@
 """
 Step 2 – Build FAISS Index
 ===========================
-Reads the USDA and OpenFoodFacts CSVs, creates sentence embeddings for each
-food entry, and stores everything in a FAISS index + metadata pickle.
+Reads usda_final.csv (item_name, macros, cat_l1, cat_l2, cat_l3), creates
+sentence embeddings and stores everything in a FAISS index + metadata pickle.
 
 This is a ONE-TIME setup step.  Run it before using the retriever:
 
     python -m step2_retrieval.build_index
+    # or:
+    python main.py --build-index
 
 The resulting files are saved under  data/faiss_index/
 """
 
-import json
-import pickle
 import sys
 import time
 from pathlib import Path
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
 
-def _clean(val):
+def _clean(val) -> str:
     """Return empty string for NaN / None values."""
     if pd.isna(val):
         return ""
@@ -34,53 +34,36 @@ def _clean(val):
 
 
 def load_and_prepare_data() -> pd.DataFrame:
-    """Load both CSV files and create a unified dataframe with embedding text."""
-    frames = []
+    """Load usda_final.csv and prepare it for embedding."""
 
-    # ── OpenFoodFacts ────────────────────────────────────────────────────
-    if config.OFF_CSV.exists():
-        print(f"📂 Loading OpenFoodFacts: {config.OFF_CSV}")
-        off = pd.read_csv(config.OFF_CSV, dtype=str, low_memory=False)
-        off.columns = [c.strip() for c in off.columns]
-        # build embedding text: "product_name | brand"
-        off["text_for_embedding"] = off.apply(
-            lambda r: " | ".join(filter(None, [_clean(r.get("item_name", "")),
-                                                _clean(r.get("brand", ""))])),
-            axis=1,
+    # ── USDA final (with real ontology categories) ────────────────────────
+    csv_path = config.USDA_FINAL_CSV
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"usda_final.csv not found at {csv_path}.\n"
+            "Place the file in the data/ directory and try again."
         )
-        off["source"] = "openfoodfacts"
-        off["doc_id"] = "off_" + off.index.astype(str)
-        frames.append(off)
-        print(f"   ✅ {len(off):,} rows from OpenFoodFacts")
-    else:
-        print(f"⚠️  OpenFoodFacts CSV not found at {config.OFF_CSV}")
 
-    # ── USDA ──────────────────────────────────────────────────────────────
-    if config.USDA_CSV.exists():
-        print(f"📂 Loading USDA: {config.USDA_CSV}")
-        usda = pd.read_csv(config.USDA_CSV, dtype=str, low_memory=False)
-        usda.columns = [c.strip() for c in usda.columns]
-        # build embedding text: item_name (+ brand if present)
-        usda["text_for_embedding"] = usda.apply(
-            lambda r: " | ".join(filter(None, [_clean(r.get("item_name", "")),
-                                                _clean(r.get("brand", ""))])),
-            axis=1,
-        )
-        usda["source"] = "usda"
-        usda["doc_id"] = "usda_" + usda.index.astype(str)
-        frames.append(usda)
-        print(f"   ✅ {len(usda):,} rows from USDA")
-    else:
-        print(f"⚠️  USDA CSV not found at {config.USDA_CSV}")
+    print(f"📂 Loading USDA final: {csv_path}")
+    df = pd.read_csv(csv_path, dtype=str, low_memory=False)
+    df.columns = [c.strip() for c in df.columns]
+    print(f"   ✅ {len(df):,} rows loaded")
 
-    if not frames:
-        raise FileNotFoundError("No food CSVs found. Extract food_dbs.zip into data/")
+    # build embedding text from item_name only (no brand in this dataset)
+    df["text_for_embedding"] = df["item_name"].fillna("").str.strip()
+    df["source"] = df.get("source", pd.Series(["usda"] * len(df)))
+    df["doc_id"] = "usda_" + df.index.astype(str)
 
-    df = pd.concat(frames, ignore_index=True)
-
-    # drop rows where we have no text to embed
+    # drop rows with no embeddable text
     df = df[df["text_for_embedding"].str.len() > 0].reset_index(drop=True)
-    print(f"\n📊 Total food entries to index: {len(df):,}")
+
+    # ── Log ontology distribution ─────────────────────────────────────────
+    print("\n🏷️  Ontology category distribution (L1):")
+    cat_counts = df["cat_l1"].fillna("(missing)").value_counts()
+    for cat, cnt in cat_counts.items():
+        print(f"     {cat:35s}: {cnt:,}")
+
+    print(f"\n📊 Total entries to index: {len(df):,}")
     return df
 
 
@@ -93,7 +76,6 @@ def build_index(batch_size: int | None = None):
 
     # ── load embedding model ─────────────────────────────────────────────
     print(f"\n🤖 Loading embedding model: {config.EMBEDDING_MODEL_NAME}")
-    # Use MPS (Apple Silicon GPU) or CUDA if available for faster encoding
     device = "cpu"
     try:
         import torch
@@ -131,25 +113,28 @@ def build_index(batch_size: int | None = None):
     # ── save index + metadata ────────────────────────────────────────────
     config.INDEX_DIR.mkdir(parents=True, exist_ok=True)
     index_path = config.INDEX_DIR / "food.index"
-    meta_path = config.INDEX_DIR / "food_meta.pkl"
+    meta_path  = config.INDEX_DIR / "food_meta.pkl"
 
     faiss.write_index(index, str(index_path))
     print(f"   💾 FAISS index saved: {index_path}")
 
-    # metadata: keep all columns we need for retrieval
+    # keep all columns relevant for retrieval + ontology
     keep_cols = [
-        "doc_id", "source", "item_id", "item_name", "brand",
+        "doc_id", "source", "item_name",
         "kcal_100g", "protein_100g", "carbs_100g", "fat_100g",
+        "cat_l1", "cat_l2", "cat_l3",
         "text_for_embedding",
     ]
-    # add optional columns if present
-    for c in ["serving_size", "quantity", "portion_description", "gram_weight"]:
+    # optional columns present in some variants of the data
+    for c in ["item_id", "brand", "serving_size", "quantity",
+              "portion_description", "gram_weight"]:
         if c in df.columns:
             keep_cols.append(c)
+
     keep_cols = [c for c in keep_cols if c in df.columns]
     meta_df = df[keep_cols].copy()
     meta_df.to_pickle(str(meta_path))
-    print(f"   💾 Metadata saved: {meta_path}")
+    print(f"   💾 Metadata saved : {meta_path}  ({len(meta_df):,} rows, {len(keep_cols)} cols)")
     print("\n🎉 Index build complete!")
 
 

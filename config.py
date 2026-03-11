@@ -47,8 +47,13 @@ EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "512"))
 TOP_K_CANDIDATES = int(os.getenv("TOP_K_CANDIDATES", "20"))
 
 # ── Data files ───────────────────────────────────────────────────────────────
-OFF_CSV = DATA_DIR / "off_nutrition_clean.csv"
-USDA_CSV = DATA_DIR / "usda_nutrition_clean.csv"
+# usda_final.csv: 124k rows with item_name, macros, cat_l1, cat_l2, cat_l3
+USDA_FINAL_CSV = DATA_DIR / "usda_final.csv"
+
+# ── Ontology filter (Step 1.5) ───────────────────────────────────────────────
+# Boost multiplier applied to retrieval candidates whose cat_l1 matches the
+# predicted category.  1.0 = no boost (still records category info in output).
+ONTOLOGY_CATEGORY_BOOST = float(os.getenv("ONTOLOGY_CATEGORY_BOOST", "1.15"))
 
 # ── Whisper / Voice input settings ───────────────────────────────────────────
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
@@ -61,6 +66,13 @@ PORTION_DEFAULTS_FILE = ROOT_DIR / "portion_defaults.json"
 
 # ── Calibration file ────────────────────────────────────────────────────────
 CALIBRATION_FILE = CALIBRATION_DIR / "user_prefs.json"
+
+# ── Local LLM (Ollama) ───────────────────────────────────────────────────────
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL",    "qwen2.5:7b")
+
+# ── Database ─────────────────────────────────────────────────────────────────
+DB_PATH = DATA_DIR / "sayfit_meals.db"
 
 
 def print_config():
@@ -77,8 +89,7 @@ def print_config():
     print(f"  WHISPER_MODEL      : {WHISPER_MODEL}")
     print(f"  WHISPER_SAMPLE_RATE: {WHISPER_SAMPLE_RATE} Hz")
     print(f"  WHISPER_TARGET_DB  : {WHISPER_TARGET_DB} dB")
-    print(f"  USDA CSV rows      : {USDA_CSV}")
-    print(f"  OFF CSV rows       : {OFF_CSV}")
+    print(f"  USDA final CSV     : {USDA_FINAL_CSV}")
     print("=" * 60)
 
 

@@ -98,7 +98,12 @@ def _compute_name_penalty(query_core: str, candidate_name: str) -> float:
     return 0.6
 
 
-def retrieve(queries: list[str], top_k: int | None = None) -> dict:
+def retrieve(
+    queries: list[str],
+    top_k: int | None = None,
+    category_hints: list[str] | None = None,
+    category_boost: float | None = None,
+) -> dict:
     """
     Retrieve top-K candidates for each query.
 
@@ -108,6 +113,14 @@ def retrieve(queries: list[str], top_k: int | None = None) -> dict:
         Search queries, e.g. ["pepperoni pizza (frozen)", "egg (boiled)"]
     top_k : int
         Number of candidates per query (default from config).
+    category_hints : list[dict] | None
+        Predicted categories per query from Step 1.5, e.g.
+        [{"cat_l1": "dairy & eggs", "cat_l2": "eggs"}, ...].
+        L1 match → ×boost; L2 match (finer) → ×boost again (stacked).
+        No hard filtering — candidates outside the category are still kept.
+    category_boost : float
+        Multiplicative boost per matching level (default 1.15 = +15 %).
+        L1+L2 match → ×1.15×1.15 ≈ +32 %.  Set to 1.0 to disable.
 
     Returns
     -------
@@ -115,10 +128,19 @@ def retrieve(queries: list[str], top_k: int | None = None) -> dict:
     """
     _load_resources()
     top_k = top_k or config.TOP_K_CANDIDATES
+    category_boost = category_boost if category_boost is not None else config.ONTOLOGY_CATEGORY_BOOST
     # retrieve more than needed so we can re-rank
     search_k = min(top_k * 3, _index.ntotal)
 
+    has_cat_l1 = "cat_l1" in _meta.columns
+    has_cat_l2 = "cat_l2" in _meta.columns
+    has_cat_l3 = "cat_l3" in _meta.columns
+    hints = category_hints or []
+
     print(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}) …")
+    if hints:
+        print(f"   🏷️  Ontology hints active (boost={category_boost}×) – "
+              f"{len(hints)} hint(s) provided")
 
     # encode all queries at once
     query_vecs = _model.encode(queries, normalize_embeddings=True)
@@ -131,7 +153,11 @@ def retrieve(queries: list[str], top_k: int | None = None) -> dict:
 
     for q_idx, query in enumerate(queries):
         core_name = _extract_core_name(query)
-        print(f"   Query: \"{query}\" → core=\"{core_name}\"")
+        hint = hints[q_idx] if q_idx < len(hints) else {}
+        hint_l1 = hint.get("cat_l1", "") if isinstance(hint, dict) else hint or ""
+        hint_l2 = hint.get("cat_l2", "") if isinstance(hint, dict) else ""
+        print(f"   Query: \"{query}\" → core=\"{core_name}\""
+              + (f", hint L1={hint_l1!r} L2={hint_l2!r}" if hint_l1 else ""))
 
         candidates = []
         for rank in range(search_k):
@@ -142,15 +168,33 @@ def retrieve(queries: list[str], top_k: int | None = None) -> dict:
             row = _meta.iloc[doc_idx]
             cand_name = str(row.get("item_name", ""))
 
+            # categories from metadata (populated at index-build time)
+            cand_l1 = str(row.get("cat_l1", "")) if has_cat_l1 else ""
+            cand_l2 = str(row.get("cat_l2", "")) if has_cat_l2 else ""
+            cand_l3 = str(row.get("cat_l3", "")) if has_cat_l3 else ""
+
             # apply name-match penalty
             penalty = _compute_name_penalty(core_name, cand_name)
             adjusted_score = sim_score * penalty
+
+            # apply ontology boost (soft – no hard exclusion)
+            # L1 match → +boost, L2 match (finer) → +boost again
+            cat_match_l1 = bool(hint_l1 and hint_l1 != "other" and cand_l1 == hint_l1)
+            cat_match_l2 = bool(hint_l2 and cand_l2 and cand_l2 == hint_l2)
+            if cat_match_l1:
+                adjusted_score *= category_boost
+            if cat_match_l2:
+                adjusted_score *= category_boost  # stacked: finer match = stronger boost
 
             candidates.append({
                 "doc_id": str(row.get("doc_id", "")),
                 "source": str(row.get("source", "")),
                 "item_name": cand_name,
                 "brand": str(row.get("brand", "")) if pd.notna(row.get("brand")) else "",
+                "cat_l1": cand_l1,
+                "cat_l2": cand_l2,
+                "cat_l3": cand_l3,
+                "cat_match": cat_match_l1 or cat_match_l2,
                 "raw_score": round(sim_score, 4),
                 "adjusted_score": round(adjusted_score, 4),
                 "nutrition_per_100g": {
@@ -170,12 +214,18 @@ def retrieve(queries: list[str], top_k: int | None = None) -> dict:
         candidates.sort(key=lambda c: c["adjusted_score"], reverse=True)
         candidates = candidates[:top_k]
 
-        best = candidates[0]["item_name"] if candidates else "—"
-        print(f"   → Best match: \"{best}\" (score={candidates[0]['adjusted_score']:.3f})" if candidates else "   → No matches")
+        best = candidates[0] if candidates else None
+        if best:
+            print(f"   → Best match: \"{best['item_name']}\" "
+                  f"[{best['cat_l1']} / {best['cat_l2']}] "
+                  f"(score={best['adjusted_score']:.3f})")
+        else:
+            print("   → No matches")
 
         results["items"].append({
             "query": query,
             "core_name": core_name,
+            "category_hint": {"cat_l1": hint_l1, "cat_l2": hint_l2},
             "candidates": candidates,
         })
 

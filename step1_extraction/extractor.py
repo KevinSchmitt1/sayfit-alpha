@@ -12,19 +12,14 @@ Output : JSON  {"items": {...}, "queries": [...]}
 """
 
 import json
+import re
 import sys
 from pathlib import Path
-from openai import OpenAI
 
 # allow running from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
-
-# ── Groq client ─────────────────────────────────────────────────────────────
-client = OpenAI(
-    api_key=config.GROQ_API_KEY,
-    base_url=config.GROQ_BASE_URL,
-)
+import llm_client  # noqa: E402
 
 # ── System prompt ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """\
@@ -64,7 +59,83 @@ Rules:
 """
 
 
-def extract_items(text: str, date_time: str = "", uid: str = "") -> dict:
+_QUANTITY_WORDS = {
+    "a", "an", "one", "two", "three", "four", "five", "six",
+    "half", "some", "few", "couple", "handful",
+}
+
+_FILLER_PHRASES = re.compile(
+    r"\b(i (had|ate|drank|think i had|think i ate)|had|not sure (how much|what was in it)|"
+    r"maybe|i think|on the side|also|with|we (shared|went to|had)|"
+    r"and we|finished with|a bunch of|some kind of|not totally sure)\b",
+    re.IGNORECASE,
+)
+
+_SPLIT_PATTERN = re.compile(r",\s*(?:and\s+)?|(?<!\w)\band\b(?!\w)|\balso\b", re.IGNORECASE)
+
+
+def _clean_segment(seg: str) -> str:
+    seg = _FILLER_PHRASES.sub(" ", seg)
+    seg = re.sub(r"\s{2,}", " ", seg).strip(" .,;")
+    return seg
+
+
+def _parse_quantity(seg: str) -> tuple[str | None, str]:
+    """Trennt optionale Mengenangabe vom Lebensmittelnamen."""
+    tokens = seg.split()
+    if not tokens:
+        return None, seg
+
+    # "150g chicken" → quantity_raw="150g", name="chicken"
+    if re.match(r"^\d+(?:\.\d+)?\s*(?:g|ml|gram|grams|kg)?$", tokens[0], re.IGNORECASE):
+        return tokens[0], " ".join(tokens[1:]) or tokens[0]
+
+    # "two eggs" / "a banana"
+    if tokens[0].lower() in _QUANTITY_WORDS and len(tokens) > 1:
+        return tokens[0], " ".join(tokens[1:])
+
+    return None, seg
+
+
+def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> dict:
+    """
+    Regelbasierter Ersatz für den LLM-Extraktor (kein API-Aufruf nötig).
+    Teilt den Text an Kommas / 'and' / 'also' auf und bereinigt Füllwörter.
+    """
+    print("\n🔍 [Step 1] Extracting food items from text [Heuristik] …")
+    print(f"   Input text: \"{text}\"")
+
+    raw_segments = _SPLIT_PATTERN.split(text)
+    items: dict = {}
+    queries: list[str] = []
+
+    idx = 1
+    for seg in raw_segments:
+        seg = _clean_segment(seg)
+        if len(seg) < 2:
+            continue
+
+        quantity_raw, name = _parse_quantity(seg)
+        name = name.strip().lower()
+        if not name:
+            continue
+
+        key = f"item{idx}"
+        items[key] = {
+            "item_name":    name,
+            "quantity_raw": quantity_raw,
+            "description":  "unspecified",
+            "date_time":    date_time,
+            "uid":          uid,
+        }
+        queries.append(f"{name} (unspecified)")
+        idx += 1
+
+    print(f"   ✅ Extracted {len(items)} item(s): {queries}")
+    return {"items": items, "queries": queries}
+
+
+def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool = True) -> dict:
     """
     Call the extraction LLM and return structured items + queries.
 
@@ -81,11 +152,14 @@ def extract_items(text: str, date_time: str = "", uid: str = "") -> dict:
     -------
     dict with keys "items" and "queries", enriched with date_time per item.
     """
+    if not use_llm:
+        return extract_items_heuristic(text, date_time=date_time, uid=uid)
+
     print("\n🔍 [Step 1] Extracting food items from text …")
     print(f"   Input text: \"{text}\"")
 
-    response = client.chat.completions.create(
-        model=config.EXTRACTION_MODEL,
+    response = llm_client.get_client().chat.completions.create(
+        model=llm_client.extraction_model(),
         temperature=config.EXTRACTION_TEMPERATURE,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},

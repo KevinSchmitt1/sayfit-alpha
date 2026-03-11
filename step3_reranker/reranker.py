@@ -13,17 +13,11 @@ Standalone:  python -m step3_reranker.run [--input ...]
 import json
 import sys
 from pathlib import Path
-from openai import OpenAI
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
+import llm_client  # noqa: E402
 from step3_reranker.calibration import get_user_preference  # noqa: E402
-
-# ── Groq client ─────────────────────────────────────────────────────────────
-client = OpenAI(
-    api_key=config.GROQ_API_KEY,
-    base_url=config.GROQ_BASE_URL,
-)
 
 # ── Portion defaults ────────────────────────────────────────────────────────
 _portion_defaults: dict | None = None
@@ -142,8 +136,8 @@ def rerank_single_item(
         "user_calibration": user_pref,
     }, indent=2)
 
-    response = client.chat.completions.create(
-        model=config.REASONING_MODEL,
+    response = llm_client.get_client().chat.completions.create(
+        model=llm_client.reasoning_model(),
         temperature=config.REASONING_TEMPERATURE,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -165,9 +159,140 @@ def rerank_single_item(
     return result
 
 
+def _parse_quantity(quantity_raw) -> float | None:
+    """
+    Konvertiert eine Rohmengenangabe in einen numerischen Multiplikator.
+    Gibt None zurück wenn unklar (→ Portion-Default wird direkt verwendet).
+    """
+    if quantity_raw is None:
+        return None
+    q = str(quantity_raw).strip().lower()
+
+    # Direkte Gramm-/ml-Angabe: "150g", "200 ml"
+    import re
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*(?:g|ml|gram|grams)$", q)
+    if m:
+        return float(m.group(1))  # wird als absolute Menge behandelt, kein Multiplikator
+
+    word_map = {
+        "a": 1, "an": 1, "one": 1, "half": 0.5, "two": 2, "three": 3,
+        "four": 4, "five": 5, "six": 6, "a few": 2, "some": 1,
+    }
+    if q in word_map:
+        return word_map[q]
+
+    try:
+        return float(q)
+    except ValueError:
+        return None
+
+
+def _is_absolute_grams(quantity_raw) -> bool:
+    """True wenn quantity_raw bereits eine direkte Grammangabe ist (z.B. '150g')."""
+    import re
+    if quantity_raw is None:
+        return False
+    return bool(re.match(r"^\d+(?:\.\d+)?\s*(?:g|ml|gram|grams)$",
+                          str(quantity_raw).strip().lower()))
+
+
+def _description_penalty(description: str, candidate_name: str) -> float:
+    """
+    Einfache Kandidaten-Abwertung basierend auf der Zubereitungsart.
+    Gibt einen Multiplikator 0.5–1.0 zurück.
+    """
+    desc = description.lower()
+    cand = candidate_name.lower()
+
+    # Rohes Lebensmittel sollte nicht auf verarbeitetes Produkt matchen
+    if desc in ("raw fruit", "fresh", "raw") and any(
+        w in cand for w in ("pie", "cake", "jam", "juice", "dried", "fried", "baked")
+    ):
+        return 0.5
+
+    # Gegrilltes / gebratenes sollte nicht auf rohen Match fallen (weniger wichtig)
+    return 1.0
+
+
+def rerank_single_item_heuristic(
+    extracted_item: dict,
+    candidates: list[dict],
+) -> dict:
+    """
+    Regelbasierter Ersatz für den LLM-Reranker (kein API-Aufruf nötig).
+
+    Strategie:
+      • Kandidat mit bestem adjusted_score × description_penalty
+      • Portion aus quantity_raw (falls Zahlenangabe) oder portion_defaults
+      • Nährwerte = per_100g × amount_grams / 100
+    """
+    item_name   = extracted_item.get("item_name", "")
+    quantity_raw = extracted_item.get("quantity_raw")
+    description  = extracted_item.get("description", "unspecified")
+
+    defaults = _load_portion_defaults()
+
+    # ── 1. Besten Kandidaten wählen ───────────────────────────────────────────
+    best = max(
+        candidates,
+        key=lambda c: c.get("adjusted_score", 0) * _description_penalty(description, c.get("item_name", "")),
+    )
+    score = best.get("adjusted_score", 0)
+
+    # ── 2. Portion bestimmen ──────────────────────────────────────────────────
+    portion_hint = defaults.get(item_name.lower(), {})
+    default_grams = portion_hint.get("default_grams", 100)
+    unit = portion_hint.get("unit", "g")
+
+    if _is_absolute_grams(quantity_raw):
+        import re
+        amount_grams = float(re.match(r"^(\d+(?:\.\d+)?)", str(quantity_raw).strip()).group(1))
+    else:
+        multiplier = _parse_quantity(quantity_raw)
+        amount_grams = default_grams * (multiplier if multiplier is not None else 1.0)
+
+    # ── 3. Nährwerte berechnen ────────────────────────────────────────────────
+    per100 = best.get("nutrition_per_100g", {})
+    factor = amount_grams / 100.0
+    nutrition = {
+        "calories": round((per100.get("calories") or 0) * factor, 1),
+        "protein":  round((per100.get("protein")  or 0) * factor, 1),
+        "fat":      round((per100.get("fat")       or 0) * factor, 1),
+        "carbs":    round((per100.get("carbs")     or 0) * factor, 1),
+    }
+
+    # ── 4. Konfidenz ──────────────────────────────────────────────────────────
+    has_default = item_name.lower() in defaults
+    if score >= 0.75 and has_default:
+        confidence = "high"
+        conf_note  = ""
+    elif score >= 0.55:
+        confidence = "medium"
+        conf_note  = "Portion aus Standardwerten geschätzt." if not has_default else ""
+    else:
+        confidence = "low"
+        conf_note  = f"Schwacher Retrieval-Score ({score:.3f}); Ergebnis möglicherweise ungenau."
+
+    return {
+        "item_name":              item_name,
+        "matched_name":           best.get("item_name", ""),
+        "matched_doc_id":         best.get("doc_id", ""),
+        "source":                 best.get("source", ""),
+        "brand":                  best.get("brand", ""),
+        "amount_grams":           round(amount_grams),
+        "unit":                   unit,
+        "processing_description": description,
+        "confidence":             confidence,
+        "confidence_note":        conf_note,
+        "nutrition":              nutrition,
+        "date_time":              extracted_item.get("date_time", ""),
+    }
+
+
 def rerank_all(
     extraction_output: dict,
     retrieval_output: dict,
+    use_llm: bool = True,
 ) -> dict:
     """
     Run the reranker for every extracted item.
@@ -183,7 +308,8 @@ def rerank_all(
     -------
     dict with "results" list of finalised food items.
     """
-    print("\n🧠 [Step 3] Reranking & estimating portions …")
+    mode_label = "LLM" if use_llm else "Heuristik (kein LLM)"
+    print(f"\n🧠 [Step 3] Reranking & Portionsschätzung [{mode_label}] …")
 
     items_dict = extraction_output.get("items", {})
     retrieval_items = retrieval_output.get("items", [])
@@ -227,7 +353,10 @@ def rerank_all(
             })
             continue
 
-        result = rerank_single_item(item_data, candidates, uid=uid)
+        if use_llm:
+            result = rerank_single_item(item_data, candidates, uid=uid)
+        else:
+            result = rerank_single_item_heuristic(item_data, candidates)
         conf = result.get("confidence", "")
         print(f"   → Matched: \"{result.get('matched_name', '')}\" | "
               f"{result.get('amount_grams', '?')}g | "
