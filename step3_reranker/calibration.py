@@ -32,7 +32,8 @@ import config  # noqa: E402
 def _load_calibrations() -> dict:
     if config.CALIBRATION_FILE.exists():
         with open(config.CALIBRATION_FILE) as f:
-            return json.load(f)
+            content = f.read().strip()
+            return json.loads(content) if content else {}
     return {}
 
 

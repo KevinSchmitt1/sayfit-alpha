@@ -1,0 +1,5 @@
+{
+  "text": "A handful of roasted almonds.",
+  "date": "2026-03-11T08:05:00Z",
+  "_comment": "MULTI-QUERY TEST: Original query: 'almond (roasted)'. Variant 2: 'roasted almond' — the standard database phrasing. Without pooling, 'almond (roasted)' may rank raw or blanched almonds higher because of FAISS proximity. The 'roasted almond' variant directly hits the right entry."
+}

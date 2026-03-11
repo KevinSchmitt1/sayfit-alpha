@@ -1,0 +1,5 @@
+{
+  "text": "Half a cup of canned black beans.",
+  "date": "2026-03-11T08:07:00Z",
+  "_comment": "COMBINED TEST (ontology + multi-query): Category hint: legumes & beans. Variant 2: 'canned black beans' — exact USDA phrase. Without the legumes L1 hint, FAISS may rank black bean soup or black bean dip higher. Without pooling, 'black bean (canned)' misses the exact USDA entry. Both features needed to reliably land on 'black beans, canned, drained'."
+}

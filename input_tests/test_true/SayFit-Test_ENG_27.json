@@ -1,0 +1,5 @@
+{
+  "text": "Chicken tikka masala with naan bread.",
+  "date": "2026-03-11T09:03:00Z",
+  "_comment": "HARD ONTOLOGY MULTI-RANK: Two items with competing categories. 'chicken tikka masala' → should get category_ranks=['prepared & frozen meals', 'poultry'] — rank-1 boost for prepared meals is critical, because pure embedding similarity will surface 'chicken breast' or 'chicken curry sauce' without it. 'naan' → category_ranks=['baked goods', 'grains & pasta'] — without a hint, 'naan' embedding clusters near flatbreads, crackers, and pita. This tests whether tiered boosts (rank-1 vs rank-2) correctly handle composite dishes."
+}

@@ -1,0 +1,5 @@
+{
+  "text": "Two slices of smoked salmon.",
+  "date": "2026-03-11T08:03:00Z",
+  "_comment": "MULTI-QUERY TEST: Original query: 'salmon (smoked)'. Variant 2: 'smoked salmon' — this is the exact phrase used in the USDA/OpenFoodFacts database. Without pooling, the parenthetical form may rank generic 'salmon' entries higher. The 'smoked salmon' variant should surface the right entry."
+}

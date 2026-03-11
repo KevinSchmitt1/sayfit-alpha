@@ -1,0 +1,5 @@
+{
+  "text": "A cup of Greek yogurt.",
+  "date": "2026-03-11T08:00:00Z",
+  "_comment": "ONTOLOGY TEST: 'yogurt' is ambiguous — could surface frozen yogurt, yogurt-covered raisins, or flavored dessert yogurts. The dairy & eggs L1 hint + L2=yogurt boost should lock in plain Greek yogurt."
+}

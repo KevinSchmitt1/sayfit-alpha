@@ -294,6 +294,8 @@ Examples:
     parser.add_argument("--test-folder", type=str, help="Run all test JSONs in a folder")
     parser.add_argument("--no-llm", action="store_true",
                         help="Step 3 ohne LLM – regelbasierter Fallback (kein API-Key nötig)")
+    parser.add_argument("--openai", action="store_true",
+                        help="Use OpenAI instead of Groq (requires OPENAI_API_KEY in .env)")
     parser.add_argument("--locllm", action="store_true",
                         help="Use local Ollama instead of Groq (qwen2.5:7b)")
     parser.add_argument("--build-index", action="store_true", help="Build FAISS index and exit")
@@ -302,7 +304,7 @@ Examples:
 
     # configure LLM backend (must happen before any pipeline step)
     if not args.no_llm:
-        llm_client.configure(use_local=args.locllm)
+        llm_client.configure(use_local=args.locllm, use_openai=args.openai)
 
     # show config
     if args.show_config:

@@ -25,8 +25,10 @@ for d in [DATA_DIR, INDEX_DIR, CALIBRATION_DIR, OUTPUTS_DIR, INPUTS_DIR]:
 load_dotenv(ROOT_DIR / ".env")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-if not GROQ_API_KEY:
-    print("[WARNING] GROK_API_KEY not found in .env – LLM calls will fail.")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+
+if not GROQ_API_KEY and not OPENAI_API_KEY:
+    print("[WARNING] Neither GROQ_API_KEY nor OPENAI_API_KEY found in .env – LLM calls will fail.")
 
 # ── LLM settings (Groq) ─────────────────────────────────────────────────────
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
@@ -34,6 +36,11 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 EXTRACTION_MODEL = os.getenv("EXTRACTION_MODEL", "llama-3.3-70b-versatile")
 # Model for reasoning / reranking / coaching
 REASONING_MODEL = os.getenv("REASONING_MODEL", "llama-3.3-70b-versatile")
+
+# ── LLM settings (OpenAI) ────────────────────────────────────────────────────
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+OPENAI_EXTRACTION_MODEL = os.getenv("OPENAI_EXTRACTION_MODEL", "gpt-4o-mini")
+OPENAI_REASONING_MODEL  = os.getenv("OPENAI_REASONING_MODEL",  "gpt-4o-mini")
 # Temperature for extraction (low = deterministic)
 EXTRACTION_TEMPERATURE = float(os.getenv("EXTRACTION_TEMPERATURE", "0.1"))
 # Temperature for reasoning (slightly higher for natural language)
@@ -45,6 +52,9 @@ EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", "512"))
 
 # ── Retrieval settings ───────────────────────────────────────────────────────
 TOP_K_CANDIDATES = int(os.getenv("TOP_K_CANDIDATES", "20"))
+# Multi-query pooling: run 2–3 query variants per item and merge the candidate sets.
+# Increases recall without touching the reranker. Set to "false" to disable.
+MULTI_QUERY_POOLING = os.getenv("MULTI_QUERY_POOLING", "true").lower() == "true"
 
 # ── Data files ───────────────────────────────────────────────────────────────
 # usda_final.csv: 124k rows with item_name, macros, cat_l1, cat_l2, cat_l3
