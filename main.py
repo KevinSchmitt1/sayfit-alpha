@@ -75,15 +75,16 @@ def _make_run_dir(parent: Path | None = None, name: str | None = None) -> Path:
     return run_dir
 
 
-def _make_batch_dir() -> Path:
-    """Erstellt outputs/<date>/testrun_NNN/ für einen kompletten Test-Folder-Lauf."""
+def _make_batch_dir(label: str = "") -> Path:
+    """Erstellt outputs/<date>/testrun_NNN_<label>/ für einen kompletten Test-Folder-Lauf."""
     today = datetime.now().strftime("%Y-%m-%d")
     date_dir = config.OUTPUTS_DIR / today
     date_dir.mkdir(parents=True, exist_ok=True)
 
     existing = sorted(date_dir.glob("testrun_*"))
     next_n = len(existing) + 1
-    batch_dir = date_dir / f"testrun_{next_n:03d}"
+    suffix = f"_{label}" if label else ""
+    batch_dir = date_dir / f"testrun_{next_n:03d}{suffix}"
     batch_dir.mkdir()
     return batch_dir
 
@@ -395,7 +396,9 @@ Examples:
             print("❌ No JSON test files found.")
             sys.exit(1)
 
-        batch_dir = _make_batch_dir()
+        # use test folder name as label (e.g. "test_true")
+        folder_label = test_path.stem.replace(" ", "_")
+        batch_dir = _make_batch_dir(label=folder_label)
         print(f"\n🧪 Running {len(files)} tests  →  {batch_dir}\n")
 
         created_run_dirs: list[Path] = []

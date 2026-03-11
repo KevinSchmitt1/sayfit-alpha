@@ -226,7 +226,13 @@ def classify_item_name(item_name: str) -> tuple[str, str, str]:
 
 def apply_ontology_filter(extraction: dict) -> dict:
     """
-    Annotate each extracted item with predicted L1, L2, L3 food categories.
+    Annotate each extracted item with L1, L2, L3 food categories.
+
+    Source of categories (in priority order):
+      1. LLM mode: cat_l1/cat_l2 already set by the extraction LLM (Step 1)
+         → used directly, no extra lookup needed.
+      2. No-LLM mode: cat_l1/cat_l2 missing → classified via CSV lookup +
+         keyword fallback (classify_item_name).
 
     Parameters
     ----------
@@ -238,14 +244,15 @@ def apply_ontology_filter(extraction: dict) -> dict:
     dict — original extraction extended with:
         "ontology": {
             "item1": {
-                "item_name":        "egg",
-                "predicted_cat_l1": "dairy & eggs",
-                "predicted_cat_l2": "eggs",
+                "item_name":        "beer",
+                "predicted_cat_l1": "beverages",
+                "predicted_cat_l2": "alcoholic beverages",
                 "predicted_cat_l3": "",
+                "source": "llm" | "lookup",
             }, ...
         },
         "category_hints": [          # aligned with queries list
-            {"cat_l1": "dairy & eggs", "cat_l2": "eggs"}, ...
+            {"cat_l1": "beverages", "cat_l2": "alcoholic beverages"}, ...
         ]
     """
     _load()
@@ -257,14 +264,27 @@ def apply_ontology_filter(extraction: dict) -> dict:
     ontology: dict[str, dict] = {}
     for key, item in items.items():
         name = item.get("item_name", "")
-        l1, l2, l3 = classify_item_name(name)
+
+        # ── LLM already classified this item ──────────────────────────────
+        llm_l1 = item.get("cat_l1", "").strip()
+        llm_l2 = item.get("cat_l2", "").strip()
+
+        if llm_l1:
+            l1, l2, l3 = llm_l1, llm_l2, ""
+            source = "llm"
+        else:
+            # ── Fallback: CSV lookup + keyword heuristic ───────────────────
+            l1, l2, l3 = classify_item_name(name)
+            source = "lookup"
+
         ontology[key] = {
             "item_name":        name,
             "predicted_cat_l1": l1,
             "predicted_cat_l2": l2,
             "predicted_cat_l3": l3,
+            "source":           source,
         }
-        print(f"   {name!r:30s} → L1={l1!r}  L2={l2!r}")
+        print(f"   [{source:6s}] {name!r:28s} → L1={l1!r}  L2={l2!r}")
 
     # Build category_hints aligned with the queries list
     item_keys = list(items.keys())
@@ -283,7 +303,9 @@ def apply_ontology_filter(extraction: dict) -> dict:
     result["ontology"] = ontology
     result["category_hints"] = category_hints
 
-    print(f"   ✅ Ontology filter done – {len(ontology)} item(s) classified.")
+    llm_count    = sum(1 for v in ontology.values() if v["source"] == "llm")
+    lookup_count = len(ontology) - llm_count
+    print(f"   ✅ {len(ontology)} item(s) – {llm_count} via LLM, {lookup_count} via lookup.")
     return result
 
 

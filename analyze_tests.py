@@ -79,15 +79,17 @@ def collect_runs(
 
     runs = []
     for run_dir in test_run_dirs:
-        meta  = load_json(run_dir / "meta.json") or {}
-        step1 = load_json(run_dir / "step1_extraction_output.json") or {}
-        step2 = load_json(run_dir / "step2_retrieval_output.json") or {}
-        step3 = load_json(run_dir / "step3_reranker_output.json") or {}
+        meta    = load_json(run_dir / "meta.json") or {}
+        step1   = load_json(run_dir / "step1_extraction_output.json") or {}
+        step1_5 = load_json(run_dir / "step1_5_ontology_output.json") or {}
+        step2   = load_json(run_dir / "step2_retrieval_output.json") or {}
+        step3   = load_json(run_dir / "step3_reranker_output.json") or {}
 
         runs.append({
             "run_dir":    run_dir.name,
             "meta":       meta,
             "extraction": step1,
+            "ontology":   step1_5,
             "retrieval":  step2,
             "reranker":   step3,
         })
@@ -98,22 +100,32 @@ def collect_runs(
 # ── Analysis ──────────────────────────────────────────────────────────────────
 
 def analyze_run(run: dict) -> dict:
-    meta   = run["meta"]
-    step1  = run["extraction"]
-    step2  = run["retrieval"]
-    step3  = run["reranker"]
+    meta    = run["meta"]
+    step1   = run["extraction"]
+    step1_5 = run["ontology"]
+    step2   = run["retrieval"]
+    step3   = run["reranker"]
 
     results  = step3.get("results", [])
     items_ex = step1.get("items", {})
 
-    # top adjusted_score per query from retrieval
+    # ── ontology: predicted category per item_name ────────────────────────
+    ont_items = step1_5.get("ontology", {})
+    ont_by_name: dict[str, dict] = {}
+    for v in ont_items.values():
+        ont_by_name[v.get("item_name", "").lower()] = v
+
+    # ── retrieval: top adjusted_score + cat_match rate per query ──────────
     retrieval_items = step2.get("items", [])
-    top_scores: dict[str, float] = {}
+    top_scores:    dict[str, float] = {}
+    cat_match_rates: dict[str, float] = {}  # fraction of top-K with cat_match
     for ri in retrieval_items:
-        query = ri.get("query", "")
+        query      = ri.get("query", "")
         candidates = ri.get("candidates", [])
         if candidates:
             top_scores[query] = candidates[0].get("adjusted_score", 0.0)
+            matched = sum(1 for c in candidates if c.get("cat_match", False))
+            cat_match_rates[query] = matched / len(candidates)
 
     item_details = []
     for res in results:
@@ -126,26 +138,38 @@ def analyze_run(run: dict) -> dict:
         nutr       = res.get("nutrition", {})
         proc_desc  = res.get("processing_description", "")
 
-        query_key = f"{item_name} ({proc_desc})" if proc_desc else item_name
-        top_score = top_scores.get(query_key, None)
+        # map back to ontology prediction
+        ont = ont_by_name.get(item_name.lower(), {})
+        cat_l1     = ont.get("predicted_cat_l1", "")
+        cat_l2     = ont.get("predicted_cat_l2", "")
+        ont_source = ont.get("source", "")   # "llm" | "lookup" | ""
+
+        query_key  = f"{item_name} ({proc_desc})" if proc_desc else item_name
+        top_score  = top_scores.get(query_key, None)
+        cat_match_rate = cat_match_rates.get(query_key, None)
         if top_score is None:
             for k, v in top_scores.items():
                 if item_name.lower() in k.lower():
                     top_score = v
+                    cat_match_rate = cat_match_rates.get(k)
                     break
 
         item_details.append({
-            "item_name":  item_name,
-            "matched":    matched,
-            "confidence": confidence,
-            "conf_note":  conf_note,
-            "grams":      grams,
-            "source":     source,
-            "top_score":  top_score,
-            "calories":   nutr.get("calories"),
-            "protein":    nutr.get("protein"),
-            "fat":        nutr.get("fat"),
-            "carbs":      nutr.get("carbs"),
+            "item_name":      item_name,
+            "matched":        matched,
+            "confidence":     confidence,
+            "conf_note":      conf_note,
+            "grams":          grams,
+            "source":         source,
+            "top_score":      top_score,
+            "cat_l1":         cat_l1,
+            "cat_l2":         cat_l2,
+            "ont_source":     ont_source,
+            "cat_match_rate": cat_match_rate,
+            "calories":       nutr.get("calories"),
+            "protein":        nutr.get("protein"),
+            "fat":            nutr.get("fat"),
+            "carbs":          nutr.get("carbs"),
         })
 
     return {
@@ -196,31 +220,44 @@ def print_per_test(analyzed: list[dict]):
             continue
 
         print()
-        hdr = f"  {'#':<3} {'Item':<18} {'→ Match':<22} {'Conf':>5} {'g':>5} {'kcal':>6} {'Score':>6} {'Src':>5}"
+        hdr = (f"  {'#':<3} {'Item':<16} {'→ Match':<20} {'Conf':>4} "
+               f"{'g':>5} {'kcal':>5} {'Score':>6} {'Cat-L1':<20} {'Ont':>5}")
         print(hdr)
-        print("  " + "─" * 70)
+        print("  " + "─" * 82)
 
         for j, item in enumerate(a["items"], 1):
-            conf_ico  = CONF_EMOJI.get(item["confidence"], "?")
-            src_str   = SRC_SHORT.get(item["source"], item["source"][:4])
-            score_str = f"{item['top_score']:.3f}" if item["top_score"] is not None else "  n/a"
-            grams_str = f"{item['grams']:.0f}" if item["grams"] is not None else "  ?"
-            cal_str   = f"{item['calories']:.0f}" if item["calories"] is not None else "  ?"
+            conf_ico   = CONF_EMOJI.get(item["confidence"], "?")
+            score_str  = f"{item['top_score']:.3f}"  if item["top_score"]      is not None else "  n/a"
+            grams_str  = f"{item['grams']:.0f}"      if item["grams"]          is not None else "  ?"
+            cal_str    = f"{item['calories']:.0f}"   if item["calories"]       is not None else "  ?"
+            cat_str    = item["cat_l1"][:19]         if item["cat_l1"]         else "?"
+            ont_src    = item["ont_source"][:5]      if item["ont_source"]     else "?"
+            match_pct  = (f"{item['cat_match_rate']*100:.0f}%"
+                          if item["cat_match_rate"] is not None else "")
 
             row = (
                 f"  {j:<3} "
-                f"{item['item_name']:<18} "
-                f"{item['matched'][:21]:<22} "
-                f"{conf_ico:>5} "
+                f"{item['item_name'][:15]:<16} "
+                f"{item['matched'][:19]:<20} "
+                f"{conf_ico:>4} "
                 f"{grams_str:>5} "
-                f"{cal_str:>6} "
+                f"{cal_str:>5} "
                 f"{score_str:>6} "
-                f"{src_str:>5}"
+                f"{cat_str:<20} "
+                f"{ont_src:>5}"
             )
             print(row)
 
+            # secondary line: cat_l2 + category match rate + conf note
+            details = []
+            if item["cat_l2"]:
+                details.append(f"L2: {item['cat_l2']}")
+            if match_pct:
+                details.append(f"cat-match: {match_pct} of top-K")
             if item["conf_note"]:
-                print(f"       ↳ {item['conf_note']}")
+                details.append(item["conf_note"])
+            if details:
+                print(f"       ↳ {' │ '.join(details)}")
 
         print(SEP)
 
@@ -287,6 +324,31 @@ def print_summary(analyzed: list[dict]):
     if scores:
         score_bar = _bar(avg_score, 1.0, width=30)
         print(f"    {score_bar}  (scale 0–1)")
+    print()
+
+    # ── Ontology filter stats ─────────────────────────────────────────────
+    llm_classified    = sum(1 for i in all_items if i["ont_source"] == "llm")
+    lookup_classified = sum(1 for i in all_items if i["ont_source"] == "lookup")
+    unclassified      = n_items - llm_classified - lookup_classified
+
+    cat_match_vals = [i["cat_match_rate"] for i in all_items if i["cat_match_rate"] is not None]
+    avg_cat_match  = sum(cat_match_vals) / len(cat_match_vals) if cat_match_vals else 0.0
+
+    print("  Ontology filter (Step 1.5):")
+    print(f"    Source – LLM: {llm_classified}  │  Lookup: {lookup_classified}  │  None: {unclassified}")
+    print(f"    Avg category-match rate in top-K candidates: {avg_cat_match*100:.1f}%")
+    print()
+
+    # ── L1 category breakdown ─────────────────────────────────────────────
+    cat_counts_l1: dict[str, int] = {}
+    for item in all_items:
+        c = item["cat_l1"] or "unknown"
+        cat_counts_l1[c] = cat_counts_l1.get(c, 0) + 1
+
+    print("  L1 category distribution (predicted):")
+    for cat, n in sorted(cat_counts_l1.items(), key=lambda x: -x[1]):
+        bar = _bar(n, n_items, width=16)
+        print(f"    {cat:<28} {n:>3}  {bar}  {_pct(n, n_items)}")
     print()
 
     if low_conf_items or failed_tests:

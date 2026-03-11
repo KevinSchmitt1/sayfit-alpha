@@ -21,8 +21,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 import llm_client  # noqa: E402
 
+# ── Ontology category list (injected into system prompt) ─────────────────────
+_CATEGORY_LIST = """\
+baked goods        → baking mixes | cakes & pastries | cookies & biscuits | crackers | pies & tarts
+beverages          → alcoholic beverages | coffee | energy & sport drinks | other beverages | powdered drinks | soda & soft drinks | tea | water
+condiments & sauces → cooking sauces | ketchup & mustard | salad dressing & mayonnaise | salsa & dips | seasoning & spices
+dairy & eggs       → butter & cream | cheese | dairy desserts | eggs | ice cream & frozen yogurt | milk | yogurt
+fats & oils        → butter & margarine | vegetable & cooking oils
+fish & seafood     → canned & smoked fish | fresh fish | frozen fish & seafood | shellfish
+fruits             → canned & preserved fruits | dried fruits | fresh fruits | fruit juices
+grains & pasta     → bread | cereal | flour & corn meal | other grains | pasta & noodles | rice
+legumes & beans    → canned beans | dried legumes
+meat               → beef | lamb & game | pork | processed meats & cold cuts | sausages & hot dogs
+plant-based alternatives → plant-based milk | plant-based other
+poultry            → chicken | other poultry
+prepared & frozen meals  → frozen dinners & entrees | pizza | prepared meals | sandwiches & wraps
+snacks             → chips & crisps | nuts & seeds | other snacks | popcorn & puffed snacks | snack bars
+soups              → canned soup | prepared soup
+supplements        → dietary supplements
+sweets & confectionery → candy & gummy | chewing gum & mints | chocolate | honey & syrups | jams & spreads | sugar
+vegetables         → canned vegetables | fresh vegetables | frozen vegetables | pickles, olives & peppers | salads\
+"""
+
 # ── System prompt ────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPT = f"""\
 You are a food-logging assistant. The user will give you a sentence describing \
 what they ate or drank. Your job:
 
@@ -34,26 +56,35 @@ what they ate or drank. Your job:
    - "description": describe the processing degree or context \
      (e.g. "frozen", "homemade", "raw fruit", "fried", "boiled", "grilled", \
       "restaurant", "canned", "fresh"). If unknown, write "unspecified".
+   - "cat_l1": the best matching L1 food category from the list below
+   - "cat_l2": the best matching L2 subcategory from the list below
 3. Produce a list of search queries optimised for a food-nutrition database \
    lookup. Each query should be the item name plus the description in \
    parentheses, e.g. "pepperoni pizza (frozen)".
 
+Category list (L1 → L2 options):
+{_CATEGORY_LIST}
+
 Return ONLY valid JSON matching this schema exactly:
-{
-  "items": {
-    "item1": {
+{{
+  "items": {{
+    "item1": {{
       "item_name": "<string>",
       "quantity_raw": "<string or null>",
-      "description": "<string>"
-    }
-  },
+      "description": "<string>",
+      "cat_l1": "<L1 category>",
+      "cat_l2": "<L2 subcategory>"
+    }}
+  }},
   "queries": ["<query1>", "<query2>"]
-}
+}}
 
 Rules:
 - Number items sequentially: item1, item2, …
 - Normalise to singular where appropriate (3 eggs → item_name "egg", quantity_raw "3").
 - If the user mentions a combined dish (e.g. "chicken salad"), treat it as ONE item.
+- cat_l1 and cat_l2 MUST be chosen from the category list above exactly as written.
+- If no category fits, use "other" for cat_l1 and "" for cat_l2.
 - Do NOT invent nutritional data.
 - Output ONLY the JSON object, nothing else.
 """
