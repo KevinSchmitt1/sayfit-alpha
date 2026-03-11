@@ -137,9 +137,15 @@ def retrieve(
     has_cat_l3 = "cat_l3" in _meta.columns
     hints = category_hints or []
 
+    rank_boosts = [
+        config.ONTOLOGY_BOOST_RANK1,
+        config.ONTOLOGY_BOOST_RANK2,
+        config.ONTOLOGY_BOOST_RANK3,
+    ]
+
     print(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}) …")
     if hints:
-        print(f"   🏷️  Ontology hints active (boost={category_boost}×) – "
+        print(f"   🏷️  Ontology hints active (rank boosts={rank_boosts}) – "
               f"{len(hints)} hint(s) provided")
 
     # encode all queries at once
@@ -154,10 +160,18 @@ def retrieve(
     for q_idx, query in enumerate(queries):
         core_name = _extract_core_name(query)
         hint = hints[q_idx] if q_idx < len(hints) else {}
-        hint_l1 = hint.get("cat_l1", "") if isinstance(hint, dict) else hint or ""
-        hint_l2 = hint.get("cat_l2", "") if isinstance(hint, dict) else ""
+        if isinstance(hint, dict):
+            hint_ranked_l1: list[str] = hint.get("ranked_l1", [])
+            # backwards-compat: if no ranked_l1, fall back to flat cat_l1
+            if not hint_ranked_l1 and hint.get("cat_l1", "") not in ("", "other"):
+                hint_ranked_l1 = [hint["cat_l1"]]
+            hint_l2: str = hint.get("cat_l2", "")
+        else:
+            hint_ranked_l1 = [hint] if hint and hint != "other" else []
+            hint_l2 = ""
+        hint_l1 = hint_ranked_l1[0] if hint_ranked_l1 else ""
         print(f"   Query: \"{query}\" → core=\"{core_name}\""
-              + (f", hint L1={hint_l1!r} L2={hint_l2!r}" if hint_l1 else ""))
+              + (f", hints={hint_ranked_l1}" if hint_ranked_l1 else ""))
 
         candidates = []
         for rank in range(search_k):
@@ -178,13 +192,19 @@ def retrieve(
             adjusted_score = sim_score * penalty
 
             # apply ontology boost (soft – no hard exclusion)
-            # L1 match → +boost, L2 match (finer) → +boost again
-            cat_match_l1 = bool(hint_l1 and hint_l1 != "other" and cand_l1 == hint_l1)
+            # ranked L1 hints: rank-1 match → strongest boost, rank-2 → less, etc.
+            # Only the best (lowest-rank) matching hint fires.
+            cat_match_rank = next(
+                (i for i, l1h in enumerate(hint_ranked_l1)
+                 if l1h and l1h != "other" and cand_l1 == l1h),
+                -1,
+            )
             cat_match_l2 = bool(hint_l2 and cand_l2 and cand_l2 == hint_l2)
-            if cat_match_l1:
-                adjusted_score *= category_boost
+            if cat_match_rank >= 0:
+                boost = rank_boosts[cat_match_rank] if cat_match_rank < len(rank_boosts) else rank_boosts[-1]
+                adjusted_score *= boost
             if cat_match_l2:
-                adjusted_score *= category_boost  # stacked: finer match = stronger boost
+                adjusted_score *= category_boost  # additional boost for L2 match
 
             candidates.append({
                 "doc_id": str(row.get("doc_id", "")),
@@ -194,7 +214,7 @@ def retrieve(
                 "cat_l1": cand_l1,
                 "cat_l2": cand_l2,
                 "cat_l3": cand_l3,
-                "cat_match": cat_match_l1 or cat_match_l2,
+                "cat_match": cat_match_rank >= 0 or cat_match_l2,
                 "raw_score": round(sim_score, 4),
                 "adjusted_score": round(adjusted_score, 4),
                 "nutrition_per_100g": {
@@ -225,7 +245,7 @@ def retrieve(
         results["items"].append({
             "query": query,
             "core_name": core_name,
-            "category_hint": {"cat_l1": hint_l1, "cat_l2": hint_l2},
+            "category_hint": {"cat_l1": hint_l1, "ranked_l1": hint_ranked_l1, "cat_l2": hint_l2},
             "candidates": candidates,
         })
 

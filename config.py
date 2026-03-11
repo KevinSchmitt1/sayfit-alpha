@@ -51,9 +51,15 @@ TOP_K_CANDIDATES = int(os.getenv("TOP_K_CANDIDATES", "20"))
 USDA_FINAL_CSV = DATA_DIR / "usda_final.csv"
 
 # ── Ontology filter (Step 1.5) ───────────────────────────────────────────────
-# Boost multiplier applied to retrieval candidates whose cat_l1 matches the
-# predicted category.  1.0 = no boost (still records category info in output).
+# Legacy single-boost (kept for heuristic fallback path).
 ONTOLOGY_CATEGORY_BOOST = float(os.getenv("ONTOLOGY_CATEGORY_BOOST", "1.15"))
+
+# Tiered boost multipliers for ranked LLM category hints.
+# Rank 1 (most likely category) → strongest boost.
+# Rank 2 / 3 → progressively smaller boosts so they don't compete with rank 1.
+ONTOLOGY_BOOST_RANK1 = float(os.getenv("ONTOLOGY_BOOST_RANK1", "1.30"))
+ONTOLOGY_BOOST_RANK2 = float(os.getenv("ONTOLOGY_BOOST_RANK2", "1.10"))
+ONTOLOGY_BOOST_RANK3 = float(os.getenv("ONTOLOGY_BOOST_RANK3", "1.03"))
 
 # ── Whisper / Voice input settings ───────────────────────────────────────────
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
