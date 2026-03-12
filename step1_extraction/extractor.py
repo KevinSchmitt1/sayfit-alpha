@@ -34,9 +34,22 @@ what they ate or drank. Your job:
    - "description": describe the processing degree or context \
      (e.g. "frozen", "homemade", "raw fruit", "fried", "boiled", "grilled", \
       "restaurant", "canned", "fresh"). If unknown, write "unspecified".
+   - "category_ranks": a ranked list of 1–3 food database categories that \
+     best describe this item. Use ONLY categories from the list below. \
+     Order from most to least likely. Use ONE category for simple, \
+     unambiguous items (e.g. "banana" → ["fruits"]). Use TWO or THREE for \
+     composite or ambiguous dishes where the right database match is \
+     uncertain (e.g. "spaghetti bolognese" → \
+     ["prepared & frozen meals", "grains & pasta", "meat"]).
 3. Produce a list of search queries optimised for a food-nutrition database \
    lookup. Each query should be the item name plus the description in \
    parentheses, e.g. "pepperoni pizza (frozen)".
+
+Allowed categories (use these exact strings):
+  dairy & eggs, meat, poultry, fish & seafood, vegetables, fruits,
+  grains & pasta, baked goods, snacks, sweets & confectionery, beverages,
+  prepared & frozen meals, condiments & sauces, fats & oils,
+  legumes & beans, soups, plant-based alternatives, supplements
 
 Return ONLY valid JSON matching this schema exactly:
 {
@@ -44,7 +57,8 @@ Return ONLY valid JSON matching this schema exactly:
     "item1": {
       "item_name": "<string>",
       "quantity_raw": "<string or null>",
-      "description": "<string>"
+      "description": "<string>",
+      "category_ranks": ["<category>"]
     }
   },
   "queries": ["<query1>", "<query2>"]
@@ -54,6 +68,7 @@ Rules:
 - Number items sequentially: item1, item2, …
 - Normalise to singular where appropriate (3 eggs → item_name "egg", quantity_raw "3").
 - If the user mentions a combined dish (e.g. "chicken salad"), treat it as ONE item.
+- "category_ranks" must contain only strings from the allowed categories list.
 - Do NOT invent nutritional data.
 - Output ONLY the JSON object, nothing else.
 """

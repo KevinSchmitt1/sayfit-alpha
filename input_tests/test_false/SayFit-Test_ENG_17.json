@@ -1,0 +1,5 @@
+{
+  "text": "Sliced turkey breast on whole wheat bread.",
+  "date": "2026-03-11T08:01:00Z",
+  "_comment": "ONTOLOGY TEST: 'turkey' is ambiguous — whole roasted turkey (poultry) vs. turkey deli cold cuts (meat). LLM should assign category_ranks=[poultry, meat]. Rank-1 boost for poultry should surface sliced turkey breast, not a whole roasted bird."
+}

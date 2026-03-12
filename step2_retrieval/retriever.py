@@ -69,6 +69,33 @@ def _extract_core_name(query: str) -> str:
     return re.sub(r"\s*\(.*?\)", "", query).strip().lower()
 
 
+def _build_query_variants(query: str, core_name: str) -> list[str]:
+    """
+    Generate 2–3 search variants for multi-query pooling.
+
+    Examples:
+        "pepperoni pizza (frozen)"  →  ["pepperoni pizza (frozen)", "pepperoni pizza", "frozen pepperoni pizza"]
+        "egg (boiled)"              →  ["egg (boiled)", "egg", "boiled egg"]
+        "banana (unspecified)"      →  ["banana (unspecified)", "banana"]
+    """
+    variants = [query]
+
+    # core name only (drop description parens) if it differs
+    if core_name != query.lower().strip():
+        variants.append(core_name)
+
+    # rephrased: "item (desc)" → "desc item"  — skip "unspecified"
+    m = re.search(r"\(([^)]+)\)", query)
+    if m:
+        desc = m.group(1).strip().lower()
+        if desc and desc != "unspecified":
+            rephrased = f"{desc} {core_name}"
+            if rephrased not in variants:
+                variants.append(rephrased)
+
+    return variants
+
+
 def _compute_name_penalty(query_core: str, candidate_name: str) -> float:
     """
     Penalise candidates where the food name doesn't closely match the query.
@@ -137,95 +164,137 @@ def retrieve(
     has_cat_l3 = "cat_l3" in _meta.columns
     hints = category_hints or []
 
-    print(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}) …")
+    rank_boosts = [
+        config.ONTOLOGY_BOOST_RANK1,
+        config.ONTOLOGY_BOOST_RANK2,
+        config.ONTOLOGY_BOOST_RANK3,
+    ]
+
+    use_pooling = config.MULTI_QUERY_POOLING
+
+    print(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}, pooling={use_pooling}) …")
     if hints:
-        print(f"   🏷️  Ontology hints active (boost={category_boost}×) – "
+        print(f"   🏷️  Ontology hints active (rank boosts={rank_boosts}) – "
               f"{len(hints)} hint(s) provided")
 
-    # encode all queries at once
-    query_vecs = _model.encode(queries, normalize_embeddings=True)
-    query_vecs = np.array(query_vecs, dtype="float32")
+    # Pre-compute core names for all queries
+    core_names = [_extract_core_name(q) for q in queries]
 
-    # FAISS search
-    scores, indices = _index.search(query_vecs, search_k)
+    # Build flat variant list + index ranges per original query
+    all_variants: list[str] = []
+    variant_ranges: list[tuple[int, int]] = []
+    for q, core in zip(queries, core_names):
+        vlist = _build_query_variants(q, core) if use_pooling else [q]
+        start = len(all_variants)
+        all_variants.extend(vlist)
+        variant_ranges.append((start, start + len(vlist)))
+
+    # Encode all variants in one batch
+    all_vecs = _model.encode(all_variants, normalize_embeddings=True)
+    all_vecs = np.array(all_vecs, dtype="float32")
+
+    # FAISS search for every variant at once
+    all_scores, all_indices = _index.search(all_vecs, search_k)
 
     results = {"items": []}
 
     for q_idx, query in enumerate(queries):
-        core_name = _extract_core_name(query)
+        core_name = core_names[q_idx]
         hint = hints[q_idx] if q_idx < len(hints) else {}
-        hint_l1 = hint.get("cat_l1", "") if isinstance(hint, dict) else hint or ""
-        hint_l2 = hint.get("cat_l2", "") if isinstance(hint, dict) else ""
+        if isinstance(hint, dict):
+            hint_ranked_l1: list[str] = hint.get("ranked_l1", [])
+            # backwards-compat: if no ranked_l1, fall back to flat cat_l1
+            if not hint_ranked_l1 and hint.get("cat_l1", "") not in ("", "other"):
+                hint_ranked_l1 = [hint["cat_l1"]]
+            hint_l2: str = hint.get("cat_l2", "")
+        else:
+            hint_ranked_l1 = [hint] if hint and hint != "other" else []
+            hint_l2 = ""
+        hint_l1 = hint_ranked_l1[0] if hint_ranked_l1 else ""
+
+        v_start, v_end = variant_ranges[q_idx]
+        n_variants = v_end - v_start
+        variant_labels = all_variants[v_start:v_end]
         print(f"   Query: \"{query}\" → core=\"{core_name}\""
-              + (f", hint L1={hint_l1!r} L2={hint_l2!r}" if hint_l1 else ""))
+              + (f", hints={hint_ranked_l1}" if hint_ranked_l1 else "")
+              + (f", variants={variant_labels[1:]}" if n_variants > 1 else ""))
 
-        candidates = []
-        for rank in range(search_k):
-            doc_idx = int(indices[q_idx][rank])
-            if doc_idx < 0:
-                continue
-            sim_score = float(scores[q_idx][rank])
-            row = _meta.iloc[doc_idx]
-            cand_name = str(row.get("item_name", ""))
+        # Merge candidates from all variants: doc_id → best-scored candidate
+        merged: dict[str, dict] = {}
 
-            # categories from metadata (populated at index-build time)
-            cand_l1 = str(row.get("cat_l1", "")) if has_cat_l1 else ""
-            cand_l2 = str(row.get("cat_l2", "")) if has_cat_l2 else ""
-            cand_l3 = str(row.get("cat_l3", "")) if has_cat_l3 else ""
+        for v_offset in range(n_variants):
+            v_abs = v_start + v_offset
+            for rank in range(search_k):
+                doc_idx = int(all_indices[v_abs][rank])
+                if doc_idx < 0:
+                    continue
+                sim_score = float(all_scores[v_abs][rank])
+                row = _meta.iloc[doc_idx]
+                cand_name = str(row.get("item_name", ""))
+                doc_id = str(row.get("doc_id", ""))
 
-            # apply name-match penalty
-            penalty = _compute_name_penalty(core_name, cand_name)
-            adjusted_score = sim_score * penalty
+                cand_l1 = str(row.get("cat_l1", "")) if has_cat_l1 else ""
+                cand_l2 = str(row.get("cat_l2", "")) if has_cat_l2 else ""
+                cand_l3 = str(row.get("cat_l3", "")) if has_cat_l3 else ""
 
-            # apply ontology boost (soft – no hard exclusion)
-            # L1 match → +boost, L2 match (finer) → +boost again
-            cat_match_l1 = bool(hint_l1 and hint_l1 != "other" and cand_l1 == hint_l1)
-            cat_match_l2 = bool(hint_l2 and cand_l2 and cand_l2 == hint_l2)
-            if cat_match_l1:
-                adjusted_score *= category_boost
-            if cat_match_l2:
-                adjusted_score *= category_boost  # stacked: finer match = stronger boost
+                # name penalty always uses the original core_name (consistent across variants)
+                penalty = _compute_name_penalty(core_name, cand_name)
+                adjusted_score = sim_score * penalty
 
-            candidates.append({
-                "doc_id": str(row.get("doc_id", "")),
-                "source": str(row.get("source", "")),
-                "item_name": cand_name,
-                "brand": str(row.get("brand", "")) if pd.notna(row.get("brand")) else "",
-                "cat_l1": cand_l1,
-                "cat_l2": cand_l2,
-                "cat_l3": cand_l3,
-                "cat_match": cat_match_l1 or cat_match_l2,
-                "raw_score": round(sim_score, 4),
-                "adjusted_score": round(adjusted_score, 4),
-                "nutrition_per_100g": {
-                    "calories": _safe_float(row.get("kcal_100g")),
-                    "protein": _safe_float(row.get("protein_100g")),
-                    "fat": _safe_float(row.get("fat_100g")),
-                    "carbs": _safe_float(row.get("carbs_100g")),
-                },
-                "portion_info": {
-                    "serving_size": str(row.get("serving_size", "")) if pd.notna(row.get("serving_size", None)) else "",
-                    "portion_description": str(row.get("portion_description", "")) if pd.notna(row.get("portion_description", None)) else "",
-                    "gram_weight": _safe_float(row.get("gram_weight")),
-                },
-            })
+                # ontology boost (soft — no hard exclusion)
+                cat_match_rank = next(
+                    (i for i, l1h in enumerate(hint_ranked_l1)
+                     if l1h and l1h != "other" and cand_l1 == l1h),
+                    -1,
+                )
+                cat_match_l2 = bool(hint_l2 and cand_l2 and cand_l2 == hint_l2)
+                if cat_match_rank >= 0:
+                    boost = rank_boosts[cat_match_rank] if cat_match_rank < len(rank_boosts) else rank_boosts[-1]
+                    adjusted_score *= boost
+                if cat_match_l2:
+                    adjusted_score *= category_boost
 
-        # sort by adjusted score and keep top_k
-        candidates.sort(key=lambda c: c["adjusted_score"], reverse=True)
-        candidates = candidates[:top_k]
+                # keep best adjusted_score per doc_id across variants
+                if doc_id not in merged or adjusted_score > merged[doc_id]["adjusted_score"]:
+                    merged[doc_id] = {
+                        "doc_id": doc_id,
+                        "source": str(row.get("source", "")),
+                        "item_name": cand_name,
+                        "brand": str(row.get("brand", "")) if pd.notna(row.get("brand")) else "",
+                        "cat_l1": cand_l1,
+                        "cat_l2": cand_l2,
+                        "cat_l3": cand_l3,
+                        "cat_match": cat_match_rank >= 0 or cat_match_l2,
+                        "raw_score": round(sim_score, 4),
+                        "adjusted_score": round(adjusted_score, 4),
+                        "nutrition_per_100g": {
+                            "calories": _safe_float(row.get("kcal_100g")),
+                            "protein": _safe_float(row.get("protein_100g")),
+                            "fat": _safe_float(row.get("fat_100g")),
+                            "carbs": _safe_float(row.get("carbs_100g")),
+                        },
+                        "portion_info": {
+                            "serving_size": str(row.get("serving_size", "")) if pd.notna(row.get("serving_size", None)) else "",
+                            "portion_description": str(row.get("portion_description", "")) if pd.notna(row.get("portion_description", None)) else "",
+                            "gram_weight": _safe_float(row.get("gram_weight")),
+                        },
+                    }
+
+        # sort merged pool by adjusted_score, keep top_k
+        candidates = sorted(merged.values(), key=lambda c: c["adjusted_score"], reverse=True)[:top_k]
 
         best = candidates[0] if candidates else None
         if best:
             print(f"   → Best match: \"{best['item_name']}\" "
                   f"[{best['cat_l1']} / {best['cat_l2']}] "
-                  f"(score={best['adjusted_score']:.3f})")
+                  f"(score={best['adjusted_score']:.3f}, pool={len(merged)} unique)")
         else:
             print("   → No matches")
 
         results["items"].append({
             "query": query,
             "core_name": core_name,
-            "category_hint": {"cat_l1": hint_l1, "cat_l2": hint_l2},
+            "category_hint": {"cat_l1": hint_l1, "ranked_l1": hint_ranked_l1, "cat_l2": hint_l2},
             "candidates": candidates,
         })
 

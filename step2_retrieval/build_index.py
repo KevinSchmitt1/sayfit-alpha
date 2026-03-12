@@ -37,7 +37,8 @@ def load_and_prepare_data() -> pd.DataFrame:
     """Load usda_final.csv and prepare it for embedding."""
 
     # ── USDA final (with real ontology categories) ────────────────────────
-    csv_path = config.USDA_FINAL_CSV
+    #csv_path = config.USDA_FINAL_CSV
+    csv_path = config.COMBINED_FINAL_CSV
     if not csv_path.exists():
         raise FileNotFoundError(
             f"usda_final.csv not found at {csv_path}.\n"

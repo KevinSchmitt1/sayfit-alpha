@@ -1,0 +1,5 @@
+{
+  "text": "I had pad Thai with shrimp and extra tofu, a small spring roll on the side, and a Thai iced tea.",
+  "date": "2026-03-11T09:05:00Z",
+  "_comment": "HARDEST — 4 items, 4 different L1 categories, every feature under stress. 'pad Thai' → category_ranks=['prepared & frozen meals', 'grains & pasta'] — composite dish, rank-1 boost for prepared meals is the only way to beat plain rice noodle entries. 'shrimp (unspecified)' → fish & seafood hint keeps it away from shrimp chips or shrimp paste. 'tofu (unspecified)' → plant-based alternatives hint — without it FAISS clusters tofu near cheese due to texture/protein embedding similarity. 'spring roll (unspecified)' → prepared & frozen meals hint — without it FAISS surfaces spring roll wrappers or rice paper instead of the actual food. 'Thai iced tea' → beverages hint — variant 'thai iced tea' vs 'tea (thai iced)' tests multi-query on a culturally specific beverage."
+}

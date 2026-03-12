@@ -1,0 +1,5 @@
+{
+  "text": "A portion of frozen peas.",
+  "date": "2026-03-11T08:06:00Z",
+  "_comment": "COMBINED TEST (ontology + multi-query): Category hint: vegetables. Variant 2: 'frozen peas' — exactly how USDA lists it. Without the category hint, 'peas (frozen)' risks ranking snap peas or sugar snap peas from snacks. Without pooling, the parenthetical form misses the exact entry. Both features working together produce 'frozen peas, green' from vegetables."
+}

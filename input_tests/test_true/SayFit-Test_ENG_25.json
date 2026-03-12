@@ -1,0 +1,5 @@
+{
+  "text": "A small portion of sun-dried tomatoes in olive oil.",
+  "date": "2026-03-11T09:01:00Z",
+  "_comment": "HARD MULTI-QUERY: Two items. 'sun-dried tomato' — query will be 'tomato (sun-dried)', variant 'sun dried tomato' is the exact USDA phrase. Without pooling, the parenthetical form ranks fresh/canned tomatoes higher. 'Olive oil' — query 'olive oil (unspecified)', only 2 variants (no rephrase), but the fats & oils category hint is essential to avoid olive oil-based dressings or condiments."
+}

@@ -2,17 +2,19 @@
 SayFit Alpha – LLM Client Factory
 ====================================
 Single source of truth for LLM access.
-Supports two backends — configured once at startup via configure():
+Supports three backends — configured once at startup via configure():
 
   • Groq   (default) → cloud API, requires GROQ_API_KEY in .env
+  • OpenAI (--openai) → cloud API, requires OPENAI_API_KEY in .env
   • Ollama (--locllm) → local inference, no API key needed
 
-Both backends use the OpenAI-compatible chat.completions API,
+All backends use the OpenAI-compatible chat.completions API,
 so Step 1 and Step 3 need no changes.
 
 Usage (in main.py):
     import llm_client
-    llm_client.configure(use_local=True)   # call once before pipeline
+    llm_client.configure(use_local=True)    # Ollama
+    llm_client.configure(use_openai=True)   # OpenAI
 
 Usage (in step modules):
     from llm_client import get_client, extraction_model, reasoning_model
@@ -23,10 +25,11 @@ import config
 
 # ── Runtime state (set once via configure()) ─────────────────────────────────
 _use_local: bool = False
+_use_openai: bool = False
 _client: OpenAI | None = None
 
 
-def configure(use_local: bool = False):
+def configure(use_local: bool = False, use_openai: bool = False):
     """
     Select the LLM backend. Call this once at startup before any pipeline run.
 
@@ -34,13 +37,21 @@ def configure(use_local: bool = False):
     ----------
     use_local : bool
         True  → Ollama (http://localhost:11434)
-        False → Groq cloud API
+    use_openai : bool
+        True  → OpenAI (https://api.openai.com/v1)
+    Default (both False) → Groq cloud API
     """
-    global _use_local, _client
+    global _use_local, _use_openai, _client
     _use_local = use_local
+    _use_openai = use_openai
     _client = None  # reset lazy singleton so next get_client() picks new backend
 
-    backend = f"Ollama ({config.OLLAMA_MODEL})" if use_local else f"Groq ({config.EXTRACTION_MODEL})"
+    if use_local:
+        backend = f"Ollama ({config.OLLAMA_MODEL})"
+    elif use_openai:
+        backend = f"OpenAI ({config.OPENAI_EXTRACTION_MODEL})"
+    else:
+        backend = f"Groq ({config.EXTRACTION_MODEL})"
     print(f"   🤖 LLM backend: {backend}")
 
 
@@ -51,7 +62,12 @@ def get_client() -> OpenAI:
         if _use_local:
             _client = OpenAI(
                 base_url=config.OLLAMA_BASE_URL,
-                api_key="ollama",           # Ollama ignores the key, but openai lib requires one
+                api_key="ollama",  # Ollama ignores the key, but openai lib requires one
+            )
+        elif _use_openai:
+            _client = OpenAI(
+                api_key=config.OPENAI_API_KEY,
+                base_url=config.OPENAI_BASE_URL,
             )
         else:
             _client = OpenAI(
@@ -63,12 +79,20 @@ def get_client() -> OpenAI:
 
 def extraction_model() -> str:
     """Model name to use for Step 1 (extraction)."""
-    return config.OLLAMA_MODEL if _use_local else config.EXTRACTION_MODEL
+    if _use_local:
+        return config.OLLAMA_MODEL
+    if _use_openai:
+        return config.OPENAI_EXTRACTION_MODEL
+    return config.EXTRACTION_MODEL
 
 
 def reasoning_model() -> str:
     """Model name to use for Step 3 (reranker)."""
-    return config.OLLAMA_MODEL if _use_local else config.REASONING_MODEL
+    if _use_local:
+        return config.OLLAMA_MODEL
+    if _use_openai:
+        return config.OPENAI_REASONING_MODEL
+    return config.REASONING_MODEL
 
 
 def is_local() -> bool:

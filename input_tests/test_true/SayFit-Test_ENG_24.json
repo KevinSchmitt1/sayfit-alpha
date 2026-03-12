@@ -1,0 +1,5 @@
+{
+  "text": "A glass of oat milk.",
+  "date": "2026-03-11T09:00:00Z",
+  "_comment": "HARD ONTOLOGY: 'oat milk' lives in plant-based alternatives, NOT dairy & eggs. The embedding space strongly pulls 'milk' toward dairy. Without the L1 hint for plant-based alternatives, FAISS will rank whole milk, skim milk, or 2% milk above oat milk. The category boost must override the raw embedding similarity."
+}

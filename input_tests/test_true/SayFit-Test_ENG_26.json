@@ -1,0 +1,5 @@
+{
+  "text": "Scrambled eggs with smoked turkey on the side.",
+  "date": "2026-03-11T09:02:00Z",
+  "_comment": "HARD COMBINED: Two items, both need variant + category. 'egg (scrambled)' → variant 'scrambled egg' is the USDA exact phrase; category hint dairy & eggs prevents landing on egg-based sauces or egg salad. 'turkey (smoked)' → variant 'smoked turkey' is exact USDA; category hint poultry prevents landing on smoked sausage or pork cold cuts. Without both features, the smoked turkey match is at high risk of returning pork products."
+}

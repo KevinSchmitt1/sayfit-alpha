@@ -146,9 +146,13 @@ def _load() -> None:
         _loaded = True
         return
 
-    df = pd.read_csv(csv_path, usecols=["item_name", "cat_l1", "cat_l2", "cat_l3"],
-                     dtype=str, low_memory=False)
+    available_cols = pd.read_csv(csv_path, nrows=0).columns.tolist()
+    usecols = [c for c in ["item_name", "cat_l1", "cat_l2", "cat_l3"] if c in available_cols]
+    df = pd.read_csv(csv_path, usecols=usecols, dtype=str, low_memory=False)
     df = df.dropna(subset=["item_name"])
+    for col in ["cat_l1", "cat_l2", "cat_l3"]:
+        if col not in df.columns:
+            df[col] = ""
     df[["cat_l1", "cat_l2", "cat_l3"]] = df[["cat_l1", "cat_l2", "cat_l3"]].fillna("")
 
     # 1. Exact name lookup (lowercase normalised)
@@ -257,14 +261,30 @@ def apply_ontology_filter(extraction: dict) -> dict:
     ontology: dict[str, dict] = {}
     for key, item in items.items():
         name = item.get("item_name", "")
-        l1, l2, l3 = classify_item_name(name)
+        llm_ranks: list[str] = item.get("category_ranks", [])
+
+        if llm_ranks:
+            # LLM-provided ranked categories — use directly, normalise strings
+            ranked_l1 = [c.strip().lower() for c in llm_ranks if c.strip()]
+            l1 = ranked_l1[0] if ranked_l1 else "other"
+            l2, l3 = "", ""
+            source = "llm"
+        else:
+            # Fallback: rule-based classification (heuristic mode / no LLM)
+            l1, l2, l3 = classify_item_name(name)
+            ranked_l1 = [l1] if l1 and l1 != "other" else []
+            source = "rules"
+
         ontology[key] = {
             "item_name":        name,
             "predicted_cat_l1": l1,
             "predicted_cat_l2": l2,
             "predicted_cat_l3": l3,
+            "ranked_l1":        ranked_l1,
+            "source":           source,
         }
-        print(f"   {name!r:30s} → L1={l1!r}  L2={l2!r}")
+        rank_str = " > ".join(f"{r!r}" for r in ranked_l1) if ranked_l1 else "'other'"
+        print(f"   {name!r:30s} [{source}] → {rank_str}")
 
     # Build category_hints aligned with the queries list
     item_keys = list(items.keys())
@@ -273,11 +293,12 @@ def apply_ontology_filter(extraction: dict) -> dict:
         if q_idx < len(item_keys):
             ont = ontology[item_keys[q_idx]]
             category_hints.append({
-                "cat_l1": ont["predicted_cat_l1"],
-                "cat_l2": ont["predicted_cat_l2"],
+                "cat_l1":    ont["predicted_cat_l1"],
+                "cat_l2":    ont["predicted_cat_l2"],
+                "ranked_l1": ont["ranked_l1"],
             })
         else:
-            category_hints.append({"cat_l1": "other", "cat_l2": ""})
+            category_hints.append({"cat_l1": "other", "cat_l2": "", "ranked_l1": []})
 
     result = dict(extraction)
     result["ontology"] = ontology

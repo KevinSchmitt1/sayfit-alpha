@@ -1,0 +1,5 @@
+{
+  "text": "A baked sweet potato with a dollop of Greek yogurt instead of butter.",
+  "date": "2026-03-11T09:04:00Z",
+  "_comment": "HARD MULTI-QUERY + DISTRACTOR: Three items. 'sweet potato (baked)' → variant 'baked sweet potato' is exact USDA — without pooling, raw sweet potato ranks higher than the baked entry. 'Greek yogurt (unspecified)' → category hint dairy & eggs prevents landing on frozen yogurt desserts. DISTRACTOR: 'butter (unspecified)' is mentioned as a contrast ('instead of butter') — tests whether Step 1 LLM correctly excludes it from the item list, since the user did NOT eat butter."
+}

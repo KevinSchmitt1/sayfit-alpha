@@ -1,0 +1,5 @@
+{
+  "text": "A handful of mixed nuts.",
+  "date": "2026-03-11T08:02:00Z",
+  "_comment": "ONTOLOGY TEST: 'nuts' sits at the border of snacks vs. legumes & beans. The LLM should rank snacks first. Without the category hint, FAISS may surface legume-family items (peanuts in legumes). The snacks L1 boost should win."
+}
