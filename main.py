@@ -321,7 +321,13 @@ Examples:
     has_index = _ensure_index()
 
     print()
-    config.print_config()
+    if not args.no_llm:
+        config.print_config(
+            active_extraction_model=llm_client.extraction_model(),
+            active_reasoning_model=llm_client.reasoning_model(),
+        )
+    else:
+        config.print_config()
 
     if args.record or args.wav:
         # ── Step 0: Voice input ──────────────────────────────────────

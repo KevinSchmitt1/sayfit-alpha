@@ -92,15 +92,17 @@ OLLAMA_MODEL    = os.getenv("OLLAMA_MODEL",    "qwen2.5:7b")
 DB_PATH = DATA_DIR / "sayfit_meals.db"
 
 
-def print_config():
+def print_config(active_extraction_model: str = "", active_reasoning_model: str = ""):
     """Print current configuration for debugging."""
+    ext_model = active_extraction_model or EXTRACTION_MODEL
+    rea_model = active_reasoning_model or REASONING_MODEL
     print("=" * 60)
     print("  SayFit Alpha – Configuration")
     print("=" * 60)
     print(f"  ROOT_DIR           : {ROOT_DIR}")
     print(f"  GROQ API KEY       : {'***' + GROQ_API_KEY[-6:] if len(GROQ_API_KEY) > 6 else '(not set)'}")
-    print(f"  EXTRACTION_MODEL   : {EXTRACTION_MODEL}")
-    print(f"  REASONING_MODEL    : {REASONING_MODEL}")
+    print(f"  EXTRACTION_MODEL   : {ext_model}")
+    print(f"  REASONING_MODEL    : {rea_model}")
     print(f"  EMBEDDING_MODEL    : {EMBEDDING_MODEL_NAME}")
     print(f"  TOP_K_CANDIDATES   : {TOP_K_CANDIDATES}")
     print(f"  WHISPER_MODEL      : {WHISPER_MODEL}")
