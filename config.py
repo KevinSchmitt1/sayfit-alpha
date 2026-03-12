@@ -57,8 +57,9 @@ TOP_K_CANDIDATES = int(os.getenv("TOP_K_CANDIDATES", "20"))
 MULTI_QUERY_POOLING = os.getenv("MULTI_QUERY_POOLING", "true").lower() == "true"
 
 # ── Data files ───────────────────────────────────────────────────────────────
-# usda_final.csv: 124k rows with item_name, macros, cat_l1, cat_l2, cat_l3
+# usda_final.csv: rows with item_name, macros, cat_l1, cat_l2 (cat_l3 optional/removed)
 USDA_FINAL_CSV = DATA_DIR / "usda_final.csv"
+COMBINED_FINAL_CSV = DATA_DIR / "combined_final.csv" 
 
 # ── Ontology filter (Step 1.5) ───────────────────────────────────────────────
 # Legacy single-boost (kept for heuristic fallback path).

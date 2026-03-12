@@ -146,9 +146,13 @@ def _load() -> None:
         _loaded = True
         return
 
-    df = pd.read_csv(csv_path, usecols=["item_name", "cat_l1", "cat_l2", "cat_l3"],
-                     dtype=str, low_memory=False)
+    available_cols = pd.read_csv(csv_path, nrows=0).columns.tolist()
+    usecols = [c for c in ["item_name", "cat_l1", "cat_l2", "cat_l3"] if c in available_cols]
+    df = pd.read_csv(csv_path, usecols=usecols, dtype=str, low_memory=False)
     df = df.dropna(subset=["item_name"])
+    for col in ["cat_l1", "cat_l2", "cat_l3"]:
+        if col not in df.columns:
+            df[col] = ""
     df[["cat_l1", "cat_l2", "cat_l3"]] = df[["cat_l1", "cat_l2", "cat_l3"]].fillna("")
 
     # 1. Exact name lookup (lowercase normalised)
