@@ -58,8 +58,25 @@ def _load_resources():
     print(f"   Metadata    : {len(_meta):,} rows")
 
     print(f"   Embedding   : {config.EMBEDDING_MODEL_NAME}")
-    _model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+    # Reuse Step 1.5's model if it was already loaded (avoids two instances)
+    try:
+        import step1_5_ontology_filter.ontology_filter as _ont
+        if _ont._embed_model is not None:
+            _model = _ont._embed_model
+            print("   ♻️  Reusing embedding model from Step 1.5")
+        else:
+            _model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+            _ont._embed_model = _model
+    except ImportError:
+        _model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
     print("   ✅ Resources loaded.")
+
+    # Share model with Step 1.5 so it doesn't load a second instance
+    try:
+        import step1_5_ontology_filter.ontology_filter as _ont
+        _ont._embed_model = _model
+    except ImportError:
+        pass
 
 
 # ── scoring helpers ─────────────────────────────────────────────────────────
