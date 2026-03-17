@@ -159,7 +159,7 @@ def run_pipeline(
     return reranked
 
 
-def ask_user_corrections(reranked: dict, uid: str = "default_user") -> dict:
+# def ask_user_corrections(reranked: dict, uid: str = "default_user") -> dict:
     """
     Interactively ask the user to correct results — but ONLY if at least one
     item has low confidence (really bad match). High / medium → auto-accept.
@@ -259,7 +259,7 @@ def interactive_mode():
         reranked = run_pipeline(text, date_time=date_time, uid=uid)
 
         if reranked.get("results"):
-            reranked = ask_user_corrections(reranked, uid=uid)
+            # reranked = ask_user_corrections(reranked, uid=uid)
 
             # ── Step 5: Database ─────────────────────────────────────────
             print("\n💾 [Step 5] Saving to database …")

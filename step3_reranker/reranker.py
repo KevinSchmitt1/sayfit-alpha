@@ -111,7 +111,7 @@ def rerank_single_item(
     # look up portion defaults + user calibrations
     defaults = _load_portion_defaults()
     portion_hint = defaults.get(item_name.lower(), {})
-    user_pref = get_user_preference(uid, item_name) if uid else None
+    # user_pref = get_user_preference(uid, item_name) if uid else None
 
     # build the user message for the LLM
     user_msg = json.dumps({
@@ -133,7 +133,7 @@ def rerank_single_item(
             for c in candidates[:20]  # max 20 candidates
         ],
         "portion_defaults": portion_hint if portion_hint else None,
-        "user_calibration": user_pref,
+        # "user_calibration": user_pref,
     }, indent=2)
 
     response = llm_client.get_client().chat.completions.create(

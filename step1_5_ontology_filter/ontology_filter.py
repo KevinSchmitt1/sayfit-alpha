@@ -8,12 +8,17 @@ the ontology defined in data/usda_final.csv.  The predicted categories are
 passed to Step 2 so the retriever can boost candidates that belong to the same
 category – reducing noise and improving match quality.
 
-Classification strategy (in priority order):
-  1. Exact item_name lookup in usda_final.csv → real L1/L2/L3
-  2. Keyword search: does a known item_name appear as substring of the query?
-  3. L2 keyword scan: do any L2 category words appear in the query?
-  4. L1 seed keywords (hard-coded): broad fallback
-  5. "other" / "" for completely unknown items
+Classification strategy:
+  LLM mode (normal):
+    - L1: ranked list from Step 1 extractor (LLM output)
+    - L2: semantic cosine similarity of item_name against all L2 labels,
+          constrained to the LLM's predicted L1 buckets (no LLM call needed)
+  Heuristic mode (--no-llm):
+    1. Exact item_name lookup in usda_final.csv → real L1/L2/L3
+    2. Keyword search: does a known item_name appear as substring of the query?
+    3. L2 keyword scan: do any L2 category words appear in the query?
+    4. L1 seed keywords (hard-coded): broad fallback
+    5. "other" / "" for completely unknown items
 
 Usage (as library):
     from step1_5_ontology_filter.ontology_filter import apply_ontology_filter
@@ -27,6 +32,7 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -42,6 +48,81 @@ _name_index: list[tuple[list[str], str, str, str]] = []
 _l2_to_l1: dict[str, str] = {}
 # sorted list of (l2_tokens, l1) for l2 keyword scan
 _l2_keywords: list[tuple[list[str], str, str]] = []
+
+# ── semantic L2 index (built once on first use) ──────────────────────────────
+_l2_embed_loaded = False
+_l2_labels: list[str] = []          # L2 strings in index order
+_l2_l1s: list[str] = []             # matching L1 for each L2
+_l2_vecs: np.ndarray | None = None  # shape (n_l2, dim), normalised
+_embed_model = None                 # SentenceTransformer singleton
+
+
+def _load_embed_model():
+    """Return the embedding model — reuses the retriever's singleton if already
+    loaded, otherwise loads it here (e.g. when Step 1.5 runs before Step 2)."""
+    global _embed_model
+    if _embed_model is None:
+        # Prefer reusing the retriever's already-loaded model to avoid loading
+        # two SentenceTransformer instances in the same process (segfault risk).
+        try:
+            from step2_retrieval.retriever import _model as retriever_model
+            if retriever_model is not None:
+                _embed_model = retriever_model
+                return _embed_model
+        except ImportError:
+            pass
+        from sentence_transformers import SentenceTransformer
+        _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+    return _embed_model
+
+
+def _build_l2_embed_index() -> None:
+    """Embed all known L2 labels once and store normalised vectors."""
+    global _l2_embed_loaded, _l2_labels, _l2_l1s, _l2_vecs
+    if _l2_embed_loaded:
+        return
+    _load()  # ensure _l2_to_l1 is populated
+    if not _l2_to_l1:
+        _l2_embed_loaded = True
+        return
+
+    labels = list(_l2_to_l1.keys())
+    l1s = [_l2_to_l1[l] for l in labels]
+    model = _load_embed_model()
+    vecs = model.encode(labels, normalize_embeddings=True, show_progress_bar=False)
+    _l2_labels = labels
+    _l2_l1s = l1s
+    _l2_vecs = np.array(vecs, dtype="float32")
+    _l2_embed_loaded = True
+    print(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
+
+
+def classify_l2_semantic(item_name: str, allowed_l1s: list[str]) -> str:
+    """
+    Find the best matching L2 category for item_name using cosine similarity,
+    constrained to L2 labels whose L1 is in allowed_l1s.
+
+    Returns "" if no L2 index is available or no candidates exist.
+    """
+    _build_l2_embed_index()
+    if _l2_vecs is None or not allowed_l1s:
+        return ""
+
+    # restrict to L2s that belong to one of the allowed L1s
+    allowed_set = {a.lower().strip() for a in allowed_l1s}
+    mask = [i for i, l1 in enumerate(_l2_l1s) if l1.lower().strip() in allowed_set]
+    if not mask:
+        return ""
+
+    model = _load_embed_model()
+    item_vec = model.encode([item_name], normalize_embeddings=True,
+                             show_progress_bar=False)[0].astype("float32")
+
+    # cosine similarity (vectors already normalised → dot product)
+    candidate_vecs = _l2_vecs[mask]          # (n_candidates, dim)
+    sims = candidate_vecs @ item_vec         # (n_candidates,)
+    best_local = int(np.argmax(sims))
+    return _l2_labels[mask[best_local]]
 
 
 # ── fallback L1 seed keywords (for items completely outside the dataset) ─────
@@ -267,7 +348,9 @@ def apply_ontology_filter(extraction: dict) -> dict:
             # LLM-provided ranked categories — use directly, normalise strings
             ranked_l1 = [c.strip().lower() for c in llm_ranks if c.strip()]
             l1 = ranked_l1[0] if ranked_l1 else "other"
-            l2, l3 = "", ""
+            # Semantic L2 lookup constrained to the LLM's predicted L1 buckets
+            l2 = classify_l2_semantic(name, ranked_l1) if ranked_l1 else ""
+            l3 = ""
             source = "llm"
         else:
             # Fallback: rule-based classification (heuristic mode / no LLM)
