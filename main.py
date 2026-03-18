@@ -159,86 +159,204 @@ def run_pipeline(
     return reranked
 
 
-# def ask_user_corrections(reranked: dict, uid: str = "default_user") -> dict:
+def ask_user_corrections(
+    reranked: dict,
+    uid: str = "default_user",
+    use_llm: bool = True,
+) -> dict:
     """
-    Interactively ask the user to correct results — but ONLY if at least one
-    item has low confidence (really bad match). High / medium → auto-accept.
+    Interactively review ALL items and let the user:
+      - Edit the gram amount (nutrition is recalculated immediately)
+      - Search for a completely different food (triggers re-retrieval + re-reranking)
+      - Remove an item entirely (d<N>)
     """
     results = reranked.get("results", [])
     if not results:
         return reranked
 
-    low_conf_items = [r for r in results if r.get("confidence") == "low"]
-    if not low_conf_items:
-        return reranked
+    def _display(items: list) -> None:
+        print("\n" + "=" * 60)
+        print("  📋  Review your meal – make corrections before saving")
+        print("=" * 60)
+        for i, r in enumerate(items, 1):
+            conf = r.get("confidence", "?")
+            conf_tag = "  ⚠️ LOW" if conf == "low" else ""
+            nutr = r.get("nutrition", {})
+            print(
+                f"  [{i}] {r.get('item_name')} → {r.get('matched_name')} "
+                f"({r.get('amount_grams', '?')}g | "
+                f"{nutr.get('calories', '?')} kcal){conf_tag}"
+            )
+        print()
+        print("  Enter a number (N) to edit | d<N> to remove | Enter to accept all")
 
-    print("\n" + "=" * 60)
-    print("  ⚠️  Poor match detected – please review")
-    print("=" * 60)
-    for i, r in enumerate(results, 1):
-        if r.get("confidence") == "low":
-            print(f"  [{i}] {r.get('item_name')} → {r.get('matched_name')} "
-                  f"({r.get('amount_grams', '?')}g)  ← LOW confidence")
-    print()
-    print("  Enter item number to correct, or press Enter to accept as-is.")
-    print("  Type 'q' to finish.\n")
+    _display(results)
+
+    # Track items that need a new database search (by object reference)
+    items_to_research: list[dict] = []
 
     while True:
-        choice = input("  Correct item # (or Enter to accept / q to quit): ").strip()
-        if choice in ("", "q", "quit"):
+        choice = input("\n  > ").strip()
+        if not choice or choice.lower() in ("q", "quit", "done"):
             break
 
+        # ── Remove: d1, d2, … ──────────────────────────────────────────
+        if choice.lower().startswith("d"):
+            try:
+                idx = int(choice[1:]) - 1
+                if 0 <= idx < len(results):
+                    removed = results.pop(idx)
+                    # also remove from research queue if it was queued
+                    items_to_research = [x for x in items_to_research if x is not removed]
+                    print(f"  🗑️  Removed: \"{removed.get('item_name')}\"")
+                    if results:
+                        _display(results)
+                    else:
+                        print("  (no items left)")
+                else:
+                    print(f"  ❌ Invalid. Choose 1–{len(results)}.")
+            except ValueError:
+                print("  ❌ Invalid command. Use d1, d2, etc.")
+            continue
+
+        # ── Edit ────────────────────────────────────────────────────────
         try:
             idx = int(choice) - 1
             if idx < 0 or idx >= len(results):
-                print(f"  ❌ Invalid item number. Choose 1–{len(results)}.")
+                print(f"  ❌ Invalid. Choose 1–{len(results)}.")
                 continue
         except ValueError:
-            print("  ❌ Please enter a number.")
+            print("  ❌ Invalid command.")
             continue
 
         item = results[idx]
-        print(f"\n  Currently: {item['item_name']} → {item['matched_name']} "
-              f"({item.get('amount_grams', '?')}g)")
+        nutr = item.get("nutrition", {})
+        print(
+            f"\n  [{idx+1}] {item['item_name']} → {item['matched_name']}\n"
+            f"       {item.get('amount_grams', '?')}g | "
+            f"{nutr.get('calories', '?')} kcal | "
+            f"P:{nutr.get('protein', '?')}g | "
+            f"F:{nutr.get('fat', '?')}g | "
+            f"C:{nutr.get('carbs', '?')}g"
+        )
+        print()
 
-        new_grams = input("  New amount in grams (or Enter to keep): ").strip()
-        if new_grams:
+        # --- Search for a different food (triggers re-retrieval) -------
+        new_name = input(
+            f"  Search for different food (Enter to keep '{item['item_name']}'): "
+        ).strip()
+        if new_name:
+            item["item_name"] = new_name
+            item["_needs_research"] = True
+            if item not in items_to_research:
+                items_to_research.append(item)
+            print(f"  🔍 Will re-search for: '{new_name}'")
+
+        # --- Correct gram amount ---------------------------------------
+        new_grams_str = input(
+            f"  New amount in grams (Enter to keep {item.get('amount_grams', '?')}g): "
+        ).strip()
+        if new_grams_str:
             try:
-                grams = float(new_grams)
-                item["amount_grams"] = grams
+                new_grams = float(new_grams_str)
+                old_grams = item.get("amount_grams") or 100
+                per100 = item.get("nutrition_per_100g", {})
+
+                if per100:
+                    # Accurate: scale from stored per-100g values
+                    factor = new_grams / 100.0
+                    item["nutrition"] = {
+                        "calories": round((per100.get("calories") or 0) * factor, 1),
+                        "protein":  round((per100.get("protein")  or 0) * factor, 1),
+                        "fat":      round((per100.get("fat")       or 0) * factor, 1),
+                        "carbs":    round((per100.get("carbs")     or 0) * factor, 1),
+                    }
+                else:
+                    # Fallback: proportional scaling from existing totals
+                    scale = new_grams / old_grams
+                    item["nutrition"] = {
+                        "calories": round((nutr.get("calories") or 0) * scale, 1),
+                        "protein":  round((nutr.get("protein")  or 0) * scale, 1),
+                        "fat":      round((nutr.get("fat")       or 0) * scale, 1),
+                        "carbs":    round((nutr.get("carbs")     or 0) * scale, 1),
+                    }
+
+                item["amount_grams"] = new_grams
                 item["unit"] = "g"
+                # Store so re-search can respect the user's override
+                item["_gram_override"] = new_grams
 
-                # recalculate nutrition from the matched candidate's per-100g values
-                # We need to look up the original per-100g data
-                # For now, scale proportionally from existing values
-                old_grams = item.get("_old_grams", item.get("amount_grams", 100))
-                if old_grams and old_grams > 0:
-                    # store original grams for re-scaling
-                    nutr = item.get("nutrition", {})
-                    # scale: we recalculate from the original data
-                    # The nutrition in the item is for old_grams. We need per-100g first.
-                    pass
-
-                # save user calibration
-                save_user_correction(uid, item["item_name"], grams)
-                print(f"  ✅ Updated: {item['item_name']} → {grams}g")
+                save_user_correction(uid, item["item_name"], new_grams)
+                print(
+                    f"  ✅ Updated: {new_grams}g | "
+                    f"{item['nutrition'].get('calories', '?')} kcal"
+                )
             except ValueError:
-                print("  ❌ Invalid number. Skipping.")
+                print("  ❌ Invalid number.")
+
+    # ── Re-search for corrected item names ────────────────────────────────
+    if items_to_research:
+        from step2_retrieval.retriever import retrieve
+        from step3_reranker.reranker import rerank_single_item, rerank_single_item_heuristic
+
+        print(f"\n🔍 Re-searching {len(items_to_research)} corrected item(s) …")
+        for item in items_to_research:
+            new_name = item["item_name"]
+            print(f"   Searching for: \"{new_name}\" …")
+
+            new_retrieval = retrieve([new_name], category_hints=[])
+            new_candidates = []
+            for ri in new_retrieval.get("items", []):
+                new_candidates.extend(ri.get("candidates", []))
+
+            if not new_candidates:
+                print(f"   ⚠️  No candidates found for \"{new_name}\". Keeping current match.")
                 continue
 
-        new_name = input("  New matched food name (or Enter to keep): ").strip()
-        if new_name:
-            item["matched_name"] = new_name
-            print(f"  ✅ Updated match: {new_name}")
+            if use_llm:
+                new_result = rerank_single_item(item, new_candidates, uid=uid)
+            else:
+                new_result = rerank_single_item_heuristic(item, new_candidates)
 
-    # re-render output
-    output_text = format_output(reranked)
-    print(output_text)
+            # If the user also changed grams, apply that override on top
+            gram_override = item.get("_gram_override")
+            if gram_override:
+                per100 = new_result.get("nutrition_per_100g", {})
+                if per100:
+                    factor = gram_override / 100.0
+                    new_result["nutrition"] = {
+                        "calories": round((per100.get("calories") or 0) * factor, 1),
+                        "protein":  round((per100.get("protein")  or 0) * factor, 1),
+                        "fat":      round((per100.get("fat")       or 0) * factor, 1),
+                        "carbs":    round((per100.get("carbs")     or 0) * factor, 1),
+                    }
+                new_result["amount_grams"] = gram_override
+
+            # Replace in results list (match by identity)
+            for j, r in enumerate(results):
+                if r is item:
+                    results[j] = new_result
+                    break
+
+            nutr_new = new_result.get("nutrition", {})
+            print(
+                f"   ✅ Re-matched: \"{new_name}\" → \"{new_result.get('matched_name')}\" "
+                f"({new_result.get('amount_grams')}g | {nutr_new.get('calories', '?')} kcal)"
+            )
+
+    # Clean up internal tracking flags
+    for item in results:
+        item.pop("_needs_research", None)
+        item.pop("_gram_override", None)
+
+    reranked["results"] = results
+    print("\n  📊 Updated meal summary:")
+    print(format_output(reranked))
 
     return reranked
 
 
-def interactive_mode():
+def interactive_mode(use_llm: bool = True):
     """Interactive terminal loop for logging meals."""
     print("\n" + "=" * 60)
     print("  🍽️  SayFit Alpha – Interactive Mode")
@@ -256,10 +374,10 @@ def interactive_mode():
             break
 
         date_time = datetime.now().isoformat()
-        reranked = run_pipeline(text, date_time=date_time, uid=uid)
+        reranked = run_pipeline(text, date_time=date_time, uid=uid, use_llm=use_llm)
 
         if reranked.get("results"):
-            # reranked = ask_user_corrections(reranked, uid=uid)
+            reranked = ask_user_corrections(reranked, uid=uid, use_llm=use_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
             print("\n💾 [Step 5] Saving to database …")
@@ -355,7 +473,7 @@ Examples:
             use_llm=not args.no_llm,
         )
         if reranked.get("results"):
-            reranked = ask_user_corrections(reranked, uid=uid)
+            reranked = ask_user_corrections(reranked, uid=uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
             print("\n💾 [Step 5] Saving to database …")
@@ -380,7 +498,7 @@ Examples:
             use_llm=not args.no_llm,
         )
         if reranked.get("results"):
-            reranked = ask_user_corrections(reranked, uid=uid)
+            reranked = ask_user_corrections(reranked, uid=uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
             print("\n💾 [Step 5] Saving to database …")
@@ -457,7 +575,7 @@ Examples:
             use_llm=not args.no_llm,
         )
         if reranked.get("results"):
-            reranked = ask_user_corrections(reranked, uid=args.uid)
+            reranked = ask_user_corrections(reranked, uid=args.uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
             print("\n💾 [Step 5] Saving to database …")
@@ -471,7 +589,7 @@ Examples:
             print("\n❌ Cannot run interactive mode without FAISS index. "
                   "Run: python main.py --build-index")
             sys.exit(1)
-        interactive_mode()
+        interactive_mode(use_llm=not args.no_llm)
 
 
 if __name__ == "__main__":

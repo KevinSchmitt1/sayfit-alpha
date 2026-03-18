@@ -38,7 +38,7 @@ def _load_portion_defaults() -> dict:
 # ── System prompt for the reranker LLM ─────────────────────────────────────
 SYSTEM_PROMPT = """\
 You are a nutrition-matching assistant. You will receive:
-1. An extracted food item (name, quantity, description/processing degree).
+1. An extracted food item (name, quantity).
 2. A list of candidate matches from a nutrition database (each with name, \
    source, brand, and nutrition per 100 g).
 3. Portion defaults and any user calibration data.
@@ -111,7 +111,7 @@ def rerank_single_item(
     # look up portion defaults + user calibrations
     defaults = _load_portion_defaults()
     portion_hint = defaults.get(item_name.lower(), {})
-    # user_pref = get_user_preference(uid, item_name) if uid else None
+    user_pref = get_user_preference(uid, item_name) if uid else None
 
     # build the user message for the LLM
     user_msg = json.dumps({
@@ -133,7 +133,7 @@ def rerank_single_item(
             for c in candidates[:20]  # max 20 candidates
         ],
         "portion_defaults": portion_hint if portion_hint else None,
-        # "user_calibration": user_pref,
+        "user_calibration": user_pref,
     }, indent=2)
 
     response = llm_client.get_client().chat.completions.create(
@@ -155,6 +155,14 @@ def rerank_single_item(
 
     # attach date_time from extraction
     result["date_time"] = extracted_item.get("date_time", "")
+
+    # attach nutrition_per_100g from matched candidate so correction step can rescale
+    matched_doc_id = result.get("matched_doc_id", "")
+    result["nutrition_per_100g"] = {}
+    for c in candidates:
+        if c.get("doc_id") == matched_doc_id:
+            result["nutrition_per_100g"] = c.get("nutrition_per_100g", {})
+            break
 
     return result
 
@@ -285,6 +293,7 @@ def rerank_single_item_heuristic(
         "confidence":             confidence,
         "confidence_note":        conf_note,
         "nutrition":              nutrition,
+        "nutrition_per_100g":     per100,
         "date_time":              extracted_item.get("date_time", ""),
     }
 
@@ -349,6 +358,7 @@ def rerank_all(
                 "confidence": "low",
                 "confidence_note": "No database candidates found. Macros are estimated.",
                 "nutrition": {"calories": 0, "protein": 0, "fat": 0, "carbs": 0},
+                "nutrition_per_100g": {},
                 "date_time": item_data.get("date_time", ""),
             })
             continue

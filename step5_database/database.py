@@ -40,6 +40,7 @@ class SayFitDB:
                 -- Meals (grouped by date for stability)
                 CREATE TABLE IF NOT EXISTS meals (
                     meal_id TEXT PRIMARY KEY,
+                    meal_name TEXT DEFAULT '',
                     user_id TEXT NOT NULL,
                     meal_date DATE NOT NULL,
                     logged_at DATETIME NOT NULL,
@@ -134,6 +135,7 @@ class SayFitDB:
         input_text: str,
         meal_date: Optional[str] = None,
         meal_id: Optional[str] = None,
+        meal_name: str = "",
     ) -> str:
         """
         Save a meal with all its items atomically.
@@ -180,10 +182,10 @@ class SayFitDB:
                 conn.execute(
                     """
                     INSERT INTO meals
-                    (meal_id, user_id, meal_date, logged_at, input_text, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    (meal_id, meal_name, user_id, meal_date, logged_at, input_text, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """,
-                    (meal_id, user_id, meal_date, logged_at, input_text),
+                    (meal_id, meal_name, user_id, meal_date, logged_at, input_text),
                 )
 
                 # 3. Insert items and calculate totals
@@ -292,7 +294,7 @@ class SayFitDB:
         with self.get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT meal_id, meal_date, logged_at, input_text,
+                SELECT meal_id, meal_name, meal_date, logged_at, input_text,
                        total_calories, total_protein, total_fat, total_carbs
                 FROM meals
                 WHERE user_id = ? AND meal_date = ? AND is_deleted = 0
@@ -382,6 +384,7 @@ class SayFitDB:
         uid: str = "default_user",
         input_text: str = "",
         meal_date: str = None,
+        meal_name: str = "",
     ) -> str:
         """
         Convert Step 3 reranker output → database format and save atomically.
@@ -421,6 +424,7 @@ class SayFitDB:
             items=items,
             input_text=input_text,
             meal_date=meal_date,
+            meal_name=meal_name,
         )
 
     def print_daily_summary(self, user_id: str, meal_date: str = None):
