@@ -60,9 +60,7 @@ _portion_defaults_ont: dict | None = None  # portion_defaults.json cache
 
 # Import unit alias map from food_portion_lookup (used for unit normalisation)
 try:
-    import sys as _sys
-    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from food_portion_lookup import UNIT_ALIASES as _UNIT_ALIASES
+    from .food_portion_lookup import UNIT_ALIASES as _UNIT_ALIASES
 except ImportError:
     _UNIT_ALIASES: dict = {}
 
@@ -204,7 +202,7 @@ def _load_food_index() -> dict:
     global _food_index
     if _food_index is not None:
         return _food_index
-    ont_path = Path(__file__).resolve().parent.parent / "food_ontology_300.json"
+    ont_path = config.FOOD_ONTOLOGY_FILE
     if not ont_path.exists():
         _food_index = {}
         return _food_index

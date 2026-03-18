@@ -78,8 +78,9 @@ WHISPER_SAMPLE_RATE = int(os.getenv("WHISPER_SAMPLE_RATE", "16000"))
 WHISPER_RECORD_SECONDS = int(os.getenv("WHISPER_RECORD_SECONDS", "10"))
 WHISPER_TARGET_DB = float(os.getenv("WHISPER_TARGET_DB", "-20"))
 
-# ── Portion defaults file ───────────────────────────────────────────────────
-PORTION_DEFAULTS_FILE = ROOT_DIR / "portion_defaults.json"
+# ── Portion / ontology data files ──────────────────────────────────────────
+PORTION_DEFAULTS_FILE = DATA_DIR / "portion_defaults.json"
+FOOD_ONTOLOGY_FILE    = DATA_DIR / "food_ontology_300.json"
 
 # ── Calibration file ────────────────────────────────────────────────────────
 CALIBRATION_FILE = CALIBRATION_DIR / "user_prefs.json"
