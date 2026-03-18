@@ -21,8 +21,11 @@ Usage:
 """
 
 import argparse
+import itertools
 import json
 import sys
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +36,43 @@ from step1_extraction.extractor import extract_items
 from step3_reranker.reranker import rerank_all
 from step3_reranker.calibration import save_user_correction
 from step4_output.formatter import format_output
+
+
+# ── Progress spinner (used in normal / non-devmode) ──────────────────────────
+
+class Spinner:
+    """
+    Displays an animated spinner with a step label while a pipeline
+    step runs. Suppressed automatically in devmode (where verbose
+    output already makes progress visible).
+    """
+    _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, label: str):
+        self._label = label
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+
+    def _spin(self):
+        for frame in itertools.cycle(self._FRAMES):
+            if self._stop_event.is_set():
+                break
+            sys.stdout.write(f"\r  {frame}  {self._label} …")
+            sys.stdout.flush()
+            time.sleep(0.08)
+
+    def __enter__(self):
+        if not config.DEV_MODE:
+            self._thread.start()
+        return self
+
+    def __exit__(self, *_):
+        if not config.DEV_MODE:
+            self._stop_event.set()
+            self._thread.join()
+            # overwrite spinner line with a clean ✓ line
+            sys.stdout.write(f"\r  \u2713  {self._label:<40}\n")
+            sys.stdout.flush()
 
 
 def _ensure_index():
@@ -103,30 +143,37 @@ def run_pipeline(
     Returns the final reranker output dict.
     """
     run_dir = _make_run_dir(parent=run_parent, name=run_name)
-    print(f"   📁 Run output: {run_dir}")
+    if config.DEV_MODE:
+        print(f"   📁 Run output: {run_dir}")
 
     # Save test metadata if provided (used by analyze_tests.py)
     if meta:
         with open(run_dir / "meta.json", "w") as f:
             json.dump(meta, f, indent=2)
 
-    # ── Step 1: Extraction ───────────────────────────────────────────────
-    extraction = extract_items(text, date_time=date_time, uid=uid, use_llm=use_llm)
+    if not config.DEV_MODE:
+        print()  # blank line before spinner block
 
-    # save intermediate
+    # ── Step 1: Extraction ───────────────────────────────────────────────
+    with Spinner("Extracting food items"):
+        extraction = extract_items(text, date_time=date_time, uid=uid, use_llm=use_llm)
+
     ext_path = run_dir / "step1_extraction_output.json"
     with open(ext_path, "w") as f:
         json.dump(extraction, f, indent=2)
-    print(f"   💾 Extraction saved: {ext_path}")
+    if config.DEV_MODE:
+        print(f"   💾 {ext_path.relative_to(config.ROOT_DIR)}")
 
     # ── Step 1.5: Ontology Filter ─────────────────────────────────────────
     from step1_5_ontology_filter.ontology_filter import apply_ontology_filter
-    extraction = apply_ontology_filter(extraction)
+    with Spinner("Classifying food categories"):
+        extraction = apply_ontology_filter(extraction)
 
     ont_path = run_dir / "step1_5_ontology_output.json"
     with open(ont_path, "w") as f:
         json.dump(extraction, f, indent=2)
-    print(f"   💾 Ontology saved: {ont_path}")
+    if config.DEV_MODE:
+        print(f"   💾 {ont_path.relative_to(config.ROOT_DIR)}")
 
     # ── Step 2: Retrieval ────────────────────────────────────────────────
     queries = extraction.get("queries", [])
@@ -137,20 +184,24 @@ def run_pipeline(
     category_hints = extraction.get("category_hints", [])
 
     from step2_retrieval.retriever import retrieve
-    retrieval = retrieve(queries, category_hints=category_hints)
+    with Spinner("Finding food matches"):
+        retrieval = retrieve(queries, category_hints=category_hints)
 
     ret_path = run_dir / "step2_retrieval_output.json"
     with open(ret_path, "w") as f:
         json.dump(retrieval, f, indent=2)
-    print(f"   💾 Retrieval saved: {ret_path}")
+    if config.DEV_MODE:
+        print(f"   💾 {ret_path.relative_to(config.ROOT_DIR)}")
 
     # ── Step 3: Reranker ─────────────────────────────────────────────────
-    reranked = rerank_all(extraction, retrieval, use_llm=use_llm)
+    with Spinner("Estimating portions & calculating macros"):
+        reranked = rerank_all(extraction, retrieval, use_llm=use_llm)
 
     rer_path = run_dir / "step3_reranker_output.json"
     with open(rer_path, "w") as f:
         json.dump(reranked, f, indent=2)
-    print(f"   💾 Reranker saved: {rer_path}")
+    if config.DEV_MODE:
+        print(f"   💾 {rer_path.relative_to(config.ROOT_DIR)}")
 
     # ── Step 4: Output ───────────────────────────────────────────────────
     output_text = format_output(reranked)
@@ -194,6 +245,7 @@ def ask_user_corrections(
 
     # Track items that need a new database search (by object reference)
     items_to_research: list[dict] = []
+    _any_changes = False
 
     while True:
         choice = input("\n  > ").strip()
@@ -208,6 +260,7 @@ def ask_user_corrections(
                     removed = results.pop(idx)
                     # also remove from research queue if it was queued
                     items_to_research = [x for x in items_to_research if x is not removed]
+                    _any_changes = True
                     print(f"  🗑️  Removed: \"{removed.get('item_name')}\"")
                     if results:
                         _display(results)
@@ -248,6 +301,9 @@ def ask_user_corrections(
         if new_name:
             item["item_name"] = new_name
             item["_needs_research"] = True
+            # Pre-seed the gram override with the current amount so re-search
+            # preserves it unless the user explicitly changes grams below
+            item["_gram_override"] = item.get("amount_grams")
             if item not in items_to_research:
                 items_to_research.append(item)
             print(f"  🔍 Will re-search for: '{new_name}'")
@@ -285,6 +341,7 @@ def ask_user_corrections(
                 item["unit"] = "g"
                 # Store so re-search can respect the user's override
                 item["_gram_override"] = new_grams
+                _any_changes = True
 
                 save_user_correction(uid, item["item_name"], new_grams)
                 print(
@@ -350,8 +407,8 @@ def ask_user_corrections(
         item.pop("_gram_override", None)
 
     reranked["results"] = results
-    print("\n  📊 Updated meal summary:")
-    print(format_output(reranked))
+    if _any_changes or items_to_research:
+        print(format_output(reranked))
 
     return reranked
 
@@ -380,7 +437,7 @@ def interactive_mode(use_llm: bool = True):
             reranked = ask_user_corrections(reranked, uid=uid, use_llm=use_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
-            print("\n💾 [Step 5] Saving to database …")
+            if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
             meal_date = date_time[:10]
             get_db().save_pipeline_result(reranked, uid=uid, input_text=text, meal_date=meal_date)
             get_db().print_daily_summary(uid, meal_date)
@@ -418,7 +475,13 @@ Examples:
                         help="Use local Ollama instead of Groq (qwen2.5:7b)")
     parser.add_argument("--build-index", action="store_true", help="Build FAISS index and exit")
     parser.add_argument("--show-config", action="store_true", help="Print configuration and exit")
+    parser.add_argument("--devmode", action="store_true",
+                        help="Show verbose step-by-step debug output (developer mode)")
     args = parser.parse_args()
+
+    # activate developer mode before any module import that might print
+    if args.devmode:
+        config.DEV_MODE = True
 
     # configure LLM backend (must happen before any pipeline step)
     if not args.no_llm:
@@ -439,29 +502,61 @@ Examples:
     has_index = _ensure_index()
 
     print()
-    if not args.no_llm:
-        config.print_config(
-            active_extraction_model=llm_client.extraction_model(),
-            active_reasoning_model=llm_client.reasoning_model(),
-        )
-    else:
-        config.print_config()
+    if config.DEV_MODE:
+        if not args.no_llm:
+            config.print_config(
+                active_extraction_model=llm_client.extraction_model(),
+                active_reasoning_model=llm_client.reasoning_model(),
+            )
+        else:
+            config.print_config()
 
     if args.record or args.wav:
         # ── Step 0: Voice input ──────────────────────────────────────
-        from step0_voice_input.voice_recorder import record_and_transcribe, transcribe_wav
+        if args.record:
+            # Run recording+transcription in an isolated subprocess so that
+            # PortAudio (sounddevice) and Whisper/PyTorch are fully torn down
+            # before this process loads FAISS/OpenMP.  On macOS, both create
+            # OS-level semaphore pools that conflict when loaded in the same
+            # process, causing a segfault.
+            import subprocess
+            import tempfile
 
-        if args.wav:
-            voice_data = transcribe_wav(args.wav, uid=args.uid)
+            with tempfile.NamedTemporaryFile(
+                suffix=".json", delete=False, mode="w"
+            ) as tf:
+                tmp_path = Path(tf.name)
+
+            cmd = [
+                sys.executable, "-m", "step0_voice_input.run",
+                "--uid", args.uid,
+                "--output", str(tmp_path),
+                "--duration", str(args.duration or config.WHISPER_RECORD_SECONDS),
+            ]
+            if config.DEV_MODE:
+                # pass devmode env flag so _log() prints inside the subprocess
+                env = {**__import__("os").environ, "SAYFIT_DEVMODE": "1"}
+            else:
+                env = None
+
+            ret = subprocess.run(cmd, cwd=str(config.ROOT_DIR), env=env)
+            if ret.returncode != 0:
+                print("❌ Recording failed.")
+                sys.exit(1)
+
+            with open(tmp_path) as f:
+                voice_data = json.load(f)
+            tmp_path.unlink(missing_ok=True)
         else:
-            duration = args.duration or config.WHISPER_RECORD_SECONDS
-            voice_data = record_and_transcribe(duration=duration, uid=args.uid)
+            from step0_voice_input.voice_recorder import transcribe_wav
+            voice_data = transcribe_wav(args.wav, uid=args.uid)
 
         # save intermediate
         voice_path = config.OUTPUTS_DIR / "step0_voice_output.json"
         with open(voice_path, "w") as f:
             json.dump(voice_data, f, indent=2)
-        print(f"   💾 Voice output saved: {voice_path}")
+        if config.DEV_MODE:
+            print(f"   💾 Voice output saved: {voice_path}")
 
         # feed into pipeline
         uid = voice_data.get("UID", args.uid)
@@ -476,7 +571,7 @@ Examples:
             reranked = ask_user_corrections(reranked, uid=uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
-            print("\n💾 [Step 5] Saving to database …")
+            if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
             meal_date = date_time[:10]
             get_db().save_pipeline_result(reranked, uid=uid, input_text=voice_data["text"], meal_date=meal_date)
             get_db().print_daily_summary(uid, meal_date)
@@ -501,7 +596,7 @@ Examples:
             reranked = ask_user_corrections(reranked, uid=uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
-            print("\n💾 [Step 5] Saving to database …")
+            if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
             meal_date = date_time[:10]
             get_db().save_pipeline_result(reranked, uid=uid, input_text=data["text"], meal_date=meal_date)
             get_db().print_daily_summary(uid, meal_date)
@@ -578,7 +673,7 @@ Examples:
             reranked = ask_user_corrections(reranked, uid=args.uid, use_llm=not args.no_llm)
 
             # ── Step 5: Database ─────────────────────────────────────────
-            print("\n💾 [Step 5] Saving to database …")
+            if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
             meal_date = date_time[:10]
             get_db().save_pipeline_result(reranked, uid=args.uid, input_text=args.text, meal_date=meal_date)
             get_db().print_daily_summary(args.uid, meal_date)

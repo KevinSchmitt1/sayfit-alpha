@@ -38,6 +38,12 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── lazy-loaded lookup structures ───────────────────────────────────────────
 _loaded = False
 # exact lookup: normalised item_name → (cat_l1, cat_l2, cat_l3)
@@ -172,7 +178,18 @@ def _load_embed_model():
         except ImportError:
             pass
         from sentence_transformers import SentenceTransformer
-        _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        import os as _os
+        if config.DEV_MODE:
+            _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        else:
+            _devnull = _os.open(_os.devnull, _os.O_WRONLY)
+            _saved_out, _saved_err = _os.dup(1), _os.dup(2)
+            _os.dup2(_devnull, 1); _os.dup2(_devnull, 2)
+            try:
+                _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+            finally:
+                _os.dup2(_saved_out, 1); _os.dup2(_saved_err, 2)
+                _os.close(_saved_out); _os.close(_saved_err); _os.close(_devnull)
     return _embed_model
 
 
@@ -194,7 +211,7 @@ def _build_l2_embed_index() -> None:
     _l2_l1s = l1s
     _l2_vecs = np.array(vecs, dtype="float32")
     _l2_embed_loaded = True
-    print(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
+    _log(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
 
 
 def _load_food_index() -> dict:
@@ -465,7 +482,7 @@ def _load() -> None:
 
     csv_path = config.USDA_FINAL_CSV
     if not csv_path.exists():
-        print(f"⚠️  [Step 1.5] usda_final.csv not found at {csv_path} – using keyword fallback only")
+        _log(f"⚠️  [Step 1.5] usda_final.csv not found at {csv_path} – using keyword fallback only")
         _loaded = True
         return
 
@@ -576,7 +593,7 @@ def apply_ontology_filter(extraction: dict) -> dict:
         ]
     """
     _load()
-    print("\n🏷️  [Step 1.5] Applying ontology filter …")
+    _log("\n🏷️  [Step 1.5] Applying ontology filter …")
 
     items: dict = extraction.get("items", {})
     queries: list = extraction.get("queries", [])
@@ -609,7 +626,6 @@ def apply_ontology_filter(extraction: dict) -> dict:
             "source":           source,
         }
         rank_str = " > ".join(f"{r!r}" for r in ranked_l1) if ranked_l1 else "'other'"
-        print(f"   {name!r:30s} [{source}] → {rank_str}")
 
         # Resolve portion hint (Tier 1-5 chain) and attach to both dicts
         qty_parsed = item.get("quantity_parsed")
@@ -618,6 +634,10 @@ def apply_ontology_filter(extraction: dict) -> dict:
         portion_hint_result = resolve_portion_hint(name, qty_parsed, unit_h, item_uid, l1)
         ontology[key]["portion_hint"] = portion_hint_result
         items[key]["portion_hint"] = portion_hint_result
+
+        ph = portion_hint_result
+        ph_str = f"{ph['grams']}g [{ph['source']}]"
+        _log(f"   {name!r:30s} [{source}] → {rank_str}  |  {ph_str}")
 
     # Build category_hints aligned with the queries list
     item_keys = list(items.keys())
@@ -637,7 +657,7 @@ def apply_ontology_filter(extraction: dict) -> dict:
     result["ontology"] = ontology
     result["category_hints"] = category_hints
 
-    print(f"   ✅ Ontology filter done – {len(ontology)} item(s) classified.")
+    _log(f"   ✅ Ontology filter done – {len(ontology)} item(s) classified.")
     return result
 
 

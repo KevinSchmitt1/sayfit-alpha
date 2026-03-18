@@ -19,6 +19,12 @@ import config  # noqa: E402
 import llm_client  # noqa: E402
 from step3_reranker.calibration import get_user_preference  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── Portion defaults ────────────────────────────────────────────────────────
 _portion_defaults: dict | None = None
 
@@ -336,8 +342,8 @@ def rerank_all(
     -------
     dict with "results" list of finalised food items.
     """
-    mode_label = "LLM" if use_llm else "Heuristik (kein LLM)"
-    print(f"\n🧠 [Step 3] Reranking & Portionsschätzung [{mode_label}] …")
+    mode_label = "LLM" if use_llm else "heuristic (no LLM)"
+    _log(f"\n🧠 [Step 3] Reranking & portion estimation [{mode_label}] …")
 
     items_dict = extraction_output.get("items", {})
     retrieval_items = retrieval_output.get("items", [])
@@ -357,14 +363,14 @@ def rerank_all(
     results = []
     for i, (item_key, item_data) in enumerate(items_dict.items()):
         item_name = item_data.get("item_name", "")
-        print(f"\n   [{i+1}/{len(items_dict)}] Processing: \"{item_name}\"")
+        _log(f"\n   [{i+1}/{len(items_dict)}] Processing: \"{item_name}\"")
 
         # find corresponding candidates
         query = queries[i] if i < len(queries) else ""
         candidates = query_to_candidates.get(query, [])
 
         if not candidates:
-            print(f"   ⚠️  No candidates found for \"{item_name}\" – skipping LLM, using unknown estimate.")
+            _log(f"   ⚠️  No candidates found for \"{item_name}\" – skipping LLM, using unknown estimate.")
             results.append({
                 "item_name": item_name,
                 "matched_name": "UNKNOWN",
@@ -387,12 +393,12 @@ def rerank_all(
         else:
             result = rerank_single_item_heuristic(item_data, candidates)
         conf = result.get("confidence", "")
-        print(f"   → Matched: \"{result.get('matched_name', '')}\" | "
-              f"{result.get('amount_grams', '?')}g | "
-              f"confidence={conf}")
+        _log(f"   → Matched: \"{result.get('matched_name', '')}\" | "
+             f"{result.get('amount_grams', '?')}g | "
+             f"confidence={conf}")
         if conf in ("low", "medium") and result.get("confidence_note"):
-            print(f"     ℹ️  {result['confidence_note']}")
+            _log(f"     ℹ️  {result['confidence_note']}")
         results.append(result)
 
-    print(f"\n   ✅ Reranking complete – {len(results)} items finalised.")
+    _log(f"\n   ✅ Reranking complete – {len(results)} items finalised.")
     return {"results": results}

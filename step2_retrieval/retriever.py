@@ -27,6 +27,12 @@ from sentence_transformers import SentenceTransformer
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── lazy-loaded singletons ──────────────────────────────────────────────────
 _model = None
 _index = None
@@ -49,27 +55,41 @@ def _load_resources():
             "Run  python -m step2_retrieval.build_index  first."
         )
 
-    print("\n📦 [Step 2] Loading retrieval resources …")
-    print(f"   FAISS index : {index_path}")
+    _log("\n📦 [Step 2] Loading retrieval resources …")
+    _log(f"   FAISS index : {index_path}")
     _index = faiss.read_index(str(index_path))
-    print(f"   Index size  : {_index.ntotal:,} vectors")
+    _log(f"   Index size  : {_index.ntotal:,} vectors")
 
     _meta = pd.read_pickle(str(meta_path))
-    print(f"   Metadata    : {len(_meta):,} rows")
+    _log(f"   Metadata    : {len(_meta):,} rows")
 
-    print(f"   Embedding   : {config.EMBEDDING_MODEL_NAME}")
+    _log(f"   Embedding   : {config.EMBEDDING_MODEL_NAME}")
     # Reuse Step 1.5's model if it was already loaded (avoids two instances)
+    def _load_st_silent():
+        """Load SentenceTransformer, suppressing C-level fd output in normal mode."""
+        if config.DEV_MODE:
+            return SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        import os as _os
+        _devnull = _os.open(_os.devnull, _os.O_WRONLY)
+        _saved_out, _saved_err = _os.dup(1), _os.dup(2)
+        _os.dup2(_devnull, 1); _os.dup2(_devnull, 2)
+        try:
+            return SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        finally:
+            _os.dup2(_saved_out, 1); _os.dup2(_saved_err, 2)
+            _os.close(_saved_out); _os.close(_saved_err); _os.close(_devnull)
+
     try:
         import step1_5_ontology_filter.ontology_filter as _ont
         if _ont._embed_model is not None:
             _model = _ont._embed_model
-            print("   ♻️  Reusing embedding model from Step 1.5")
+            _log("   ♻️  Reusing embedding model from Step 1.5")
         else:
-            _model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+            _model = _load_st_silent()
             _ont._embed_model = _model
     except ImportError:
-        _model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
-    print("   ✅ Resources loaded.")
+        _model = _load_st_silent()
+    _log("   ✅ Resources loaded.")
 
     # Share model with Step 1.5 so it doesn't load a second instance
     try:
@@ -209,9 +229,9 @@ def retrieve(
 
     use_pooling = config.MULTI_QUERY_POOLING
 
-    print(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}, pooling={use_pooling}) …")
+    _log(f"\n🔎 [Step 2] Retrieving candidates (top_k={top_k}, pooling={use_pooling}) …")
     if hints:
-        print(f"   🏷️  Ontology hints active (rank boosts={rank_boosts}) – "
+        _log(f"   🏷️  Ontology hints active (rank boosts={rank_boosts}) – "
               f"{len(hints)} hint(s) provided")
 
     # Pre-compute core names for all queries
@@ -258,7 +278,7 @@ def retrieve(
         v_start, v_end = variant_ranges[q_idx]
         n_variants = v_end - v_start
         variant_labels = all_variants[v_start:v_end]
-        print(f"   Query: \"{query}\" → core=\"{core_name}\""
+        _log(f"   Query: \"{query}\" → core=\"{core_name}\""
               + (f", hints={hint_ranked_l1}" if hint_ranked_l1 else "")
               + (f", variants={variant_labels[1:]}" if n_variants > 1 else ""))
 
@@ -332,11 +352,11 @@ def retrieve(
 
         best = candidates[0] if candidates else None
         if best:
-            print(f"   → Best match: \"{best['item_name']}\" "
+            _log(f"   → Best match: \"{best['item_name']}\" "
                   f"[{best['cat_l1']} / {best['cat_l2']}] "
                   f"(score={best['adjusted_score']:.3f}, pool={len(merged)} unique)")
         else:
-            print("   → No matches")
+            _log("   → No matches")
 
         results["items"].append({
             "query": query,
@@ -345,7 +365,7 @@ def retrieve(
             "candidates": candidates,
         })
 
-    print(f"   ✅ Retrieved candidates for {len(queries)} queries.")
+    _log(f"   ✅ Retrieved candidates for {len(queries)} queries.")
     return results
 
 

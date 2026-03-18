@@ -21,6 +21,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 import llm_client  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── System prompt ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """\
 You are a food-logging assistant. The user will give you a sentence describing \
@@ -125,8 +131,8 @@ def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> di
     Regelbasierter Ersatz für den LLM-Extraktor (kein API-Aufruf nötig).
     Teilt den Text an Kommas / 'and' / 'also' auf und bereinigt Füllwörter.
     """
-    print("\n🔍 [Step 1] Extracting food items from text [Heuristik] …")
-    print(f"   Input text: \"{text}\"")
+    _log("\n🔍 [Step 1] Extracting food items from text [heuristic] …")
+    _log(f"   Input text: \"{text}\"")
 
     raw_segments = _SPLIT_PATTERN.split(text)
     items: dict = {}
@@ -154,7 +160,7 @@ def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> di
         queries.append(f"{name} (unspecified)")
         idx += 1
 
-    print(f"   ✅ Extracted {len(items)} item(s): {queries}")
+    _log(f"   ✅ Extracted {len(items)} item(s): {queries}")
     return {"items": items, "queries": queries}
 
 
@@ -178,8 +184,8 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
     if not use_llm:
         return extract_items_heuristic(text, date_time=date_time, uid=uid)
 
-    print("\n🔍 [Step 1] Extracting food items from text …")
-    print(f"   Input text: \"{text}\"")
+    _log("\n🔍 [Step 1] Extracting food items from text …")
+    _log(f"   Input text: \"{text}\"")
 
     response = llm_client.get_client().chat.completions.create(
         model=llm_client.extraction_model(),
@@ -200,13 +206,20 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
             raw = raw[4:]
     result = json.loads(raw)
 
+    # normalise: some models return items as a list instead of a keyed dict
+    if isinstance(result.get("items"), list):
+        result["items"] = {
+            f"item{i+1}": item
+            for i, item in enumerate(result["items"])
+        }
+
     # attach metadata to each item
     for key in result.get("items", {}):
         result["items"][key]["date_time"] = date_time
         result["items"][key]["uid"] = uid
 
     n = len(result.get("items", {}))
-    print(f"   ✅ Extracted {n} item(s): {result.get('queries', [])}")
+    _log(f"   ✅ Extracted {n} item(s): {result.get('queries', [])}")
     return result
 
 

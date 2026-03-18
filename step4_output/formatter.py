@@ -20,6 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
 
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
+
 # ── Table rendering (pure Python, no extra deps) ────────────────────────────
 
 def _pad(text: str, width: int, align: str = "<") -> str:
@@ -161,7 +167,7 @@ def format_output(reranker_output: dict) -> str:
     str – complete formatted output.
     """
     results = reranker_output.get("results", [])
-    print("\n📋 [Step 4] Formatting output …")
+    _log("\n📋 [Step 4] Formatting output …")
 
     table = render_table(results)
     summary = render_summary(results)
@@ -177,5 +183,5 @@ def save_log(reranker_output: dict, output_dir: Path | None = None) -> Path:
     path = output_dir / f"log_{ts}.json"
     with open(path, "w") as f:
         json.dump(reranker_output, f, indent=2)
-    print(f"   💾 Log saved: {path}")
+    _log(f"   💾 Log saved: {path}")
     return path
