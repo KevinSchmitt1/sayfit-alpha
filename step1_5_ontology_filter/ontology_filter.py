@@ -76,8 +76,8 @@ _CATEGORY_PORTION_DEFAULTS: dict[str, dict[str, float]] = {
     },
     # Cooked pasta/rice — pasta triples in weight when cooked
     "grains & pasta": {
-        "plate": 280, "bowl": 280, "cup": 200, "cup cooked": 200,
-        "serving": 200, "portion": 150, "default": 120,
+        "plate": 120, "bowl": 120, "cup": 50, "cup cooked": 200,
+        "serving": 120, "portion": 120, "default": 120,
     },
     # Protein cuts — moderate portions, fillet-sized
     "meat": {
@@ -103,12 +103,12 @@ _CATEGORY_PORTION_DEFAULTS: dict[str, dict[str, float]] = {
     },
     # Beverages — glass or can-based
     "beverages": {
-        "glass": 240, "cup": 240, "mug": 300, "bottle": 500,
-        "can": 330, "shot": 30, "serving": 240, "default": 240,
+        "glass": 250, "cup": 250, "mug": 300, "bottle": 500,
+        "can": 330, "shot": 30, "serving": 250, "default": 250,
     },
     # Dairy items vary widely — use conservative serving
     "dairy & eggs": {
-        "glass": 240, "cup": 240, "slice": 30, "serving": 150,
+        "glass": 250, "cup": 250, "slice": 30, "serving": 150,
         "portion": 150, "bowl": 200, "default": 150,
     },
     # Baked goods — slice or piece-based
@@ -261,6 +261,7 @@ def resolve_portion_hint(
     Explicit gram specifications (unit_hint = "g"/"ml") bypass all tiers.
 
     Returns {"grams": float, "unit": str, "source": str}
+    How to improve: make the search engine similar to step 2 (retriever)
     """
     multiplier = float(quantity_parsed) if quantity_parsed is not None else 1.0
     key = item_name.lower().strip().replace("-", " ")
