@@ -38,7 +38,7 @@ def _load_portion_defaults() -> dict:
 # ── System prompt for the reranker LLM ─────────────────────────────────────
 SYSTEM_PROMPT = """\
 You are a nutrition-matching assistant. You will receive:
-1. An extracted food item (name, quantity, description/processing degree).
+1. An extracted food item (name, quantity).
 2. A list of candidate matches from a nutrition database (each with name, \
    source, brand, and nutrition per 100 g).
 3. Portion defaults and any user calibration data.
