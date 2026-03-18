@@ -86,12 +86,14 @@ def _extract_core_name(query: str) -> str:
     return re.sub(r"\s*\(.*?\)", "", query).strip().lower()
 
 
-def _build_query_variants(query: str, core_name: str) -> list[str]:
+def _build_query_variants(query: str, core_name: str, hint_l1: str = "") -> list[str]:
     """
-    Generate 2–3 search variants for multi-query pooling.
+    Generate 2–4 search variants for multi-query pooling.
 
     Examples:
-        "pepperoni pizza (frozen)"  →  ["pepperoni pizza (frozen)", "pepperoni pizza", "frozen pepperoni pizza"]
+        "pepperoni pizza (frozen)"  →  ["pepperoni pizza (frozen)", "pepperoni pizza",
+                                         "frozen pepperoni pizza",
+                                         "prepared & frozen meals pepperoni pizza"]
         "egg (boiled)"              →  ["egg (boiled)", "egg", "boiled egg"]
         "banana (unspecified)"      →  ["banana (unspecified)", "banana"]
     """
@@ -101,7 +103,7 @@ def _build_query_variants(query: str, core_name: str) -> list[str]:
     if core_name != query.lower().strip():
         variants.append(core_name)
 
-    # rephrased: "item (desc)" → "desc item"  — skip "unspecified"
+    # rephrased: "item (desc)" → "desc item" — skip "unspecified"
     m = re.search(r"\(([^)]+)\)", query)
     if m:
         desc = m.group(1).strip().lower()
@@ -110,6 +112,13 @@ def _build_query_variants(query: str, core_name: str) -> list[str]:
             if rephrased not in variants:
                 variants.append(rephrased)
 
+    # L1-category-prefixed variant: shifts the embedding towards the correct
+    # semantic space even without rebuilding the index
+    if hint_l1 and hint_l1 not in ("", "other"):
+        cat_variant = f"{hint_l1} {core_name}"
+        if cat_variant not in variants:
+            variants.append(cat_variant)
+
     return variants
 
 
@@ -117,29 +126,40 @@ def _compute_name_penalty(query_core: str, candidate_name: str) -> float:
     """
     Penalise candidates where the food name doesn't closely match the query.
 
-    Returns a multiplier in [0.5, 1.0]:
-      - 1.0  if candidate matches query closely
-      - lower if the candidate has extra qualifier-words that change meaning
+    Returns a multiplier in [0.55, 1.0]:
+      - 1.0  exact match
+      - 0.85 candidate is a substring of the query
+      - 0.70–0.85 query is a substring of candidate (with extra words)
+      - 0.65–0.85 token overlap (shared keywords like 'bolognese')
+      - 0.55 no shared tokens at all
     """
     cand = candidate_name.lower().strip()
+    q = query_core.lower().strip()
 
     # exact match → no penalty
-    if query_core == cand:
+    if q == cand:
         return 1.0
 
-    # query is a substring at word boundary → small penalty
-    if query_core in cand:
-        # penalise based on how many extra words
-        extra_words = len(cand.split()) - len(query_core.split())
-        penalty = max(0.7, 1.0 - extra_words * 0.06)
-        return penalty
+    # query is a substring of candidate → small penalty based on extra words
+    if q in cand:
+        extra_words = len(cand.split()) - len(q.split())
+        return max(0.7, 1.0 - extra_words * 0.06)
 
     # candidate is a substring of query → slight penalty
-    if cand in query_core:
+    if cand in q:
         return 0.85
 
-    # no substring match → moderate penalty
-    return 0.6
+    # token overlap: reward shared meaningful keywords (e.g. 'bolognese')
+    q_tokens = set(q.split())
+    c_tokens = set(cand.split())
+    shared = q_tokens & c_tokens
+    if shared:
+        # fraction of query tokens found in candidate, scaled to [0.65, 0.85]
+        overlap_ratio = len(shared) / len(q_tokens)
+        return 0.65 + 0.20 * overlap_ratio
+
+    # no shared tokens at all → harshest penalty
+    return 0.55
 
 
 def retrieve(
@@ -200,8 +220,14 @@ def retrieve(
     # Build flat variant list + index ranges per original query
     all_variants: list[str] = []
     variant_ranges: list[tuple[int, int]] = []
-    for q, core in zip(queries, core_names):
-        vlist = _build_query_variants(q, core) if use_pooling else [q]
+    for i, (q, core) in enumerate(zip(queries, core_names)):
+        # extract the top-ranked L1 hint for this query (for category-prefixed variant)
+        _h = hints[i] if i < len(hints) else {}
+        if isinstance(_h, dict):
+            _l1_for_variant = (_h.get("ranked_l1") or [_h.get("cat_l1", "")])[0]
+        else:
+            _l1_for_variant = _h if _h and _h != "other" else ""
+        vlist = _build_query_variants(q, core, hint_l1=_l1_for_variant) if use_pooling else [q]
         start = len(all_variants)
         all_variants.extend(vlist)
         variant_ranges.append((start, start + len(vlist)))
@@ -268,7 +294,11 @@ def retrieve(
                 if cat_match_rank >= 0:
                     boost = rank_boosts[cat_match_rank] if cat_match_rank < len(rank_boosts) else rank_boosts[-1]
                     adjusted_score *= boost
-                if cat_match_l2:
+                # L2 boost only stacks when the candidate's L1 is the TOP-ranked category.
+                # Prevents wrong-category items from gaining L2 boost via a coincidental
+                # L2 match (e.g. raw 'spaghetti' sharing 'pasta & noodles' L2 with a
+                # prepared bolognese query whose L2 was mis-predicted).
+                if cat_match_l2 and cat_match_rank == 0:
                     adjusted_score *= category_boost
 
                 # keep best adjusted_score per doc_id across variants
