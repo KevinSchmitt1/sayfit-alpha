@@ -55,6 +55,108 @@ _l2_labels: list[str] = []          # L2 strings in index order
 _l2_l1s: list[str] = []             # matching L1 for each L2
 _l2_vecs: np.ndarray | None = None  # shape (n_l2, dim), normalised
 _embed_model = None                 # SentenceTransformer singleton
+_food_index: dict | None = None     # food_ontology_300 lookup index (lazy)
+_portion_defaults_ont: dict | None = None  # portion_defaults.json cache
+
+# Import unit alias map from food_portion_lookup (used for unit normalisation)
+try:
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from food_portion_lookup import UNIT_ALIASES as _UNIT_ALIASES
+except ImportError:
+    _UNIT_ALIASES: dict = {}
+
+# ── Category-level portion defaults ─────────────────────────────────────────
+# Median adult serving sizes (grams) per L1 category and unit type.
+# Used as Tier-3 fallback when a food is not in food_ontology_300 or user_prefs.
+# Values derived from standard dietitian portion guides (BDA, USDA MyPlate).
+_CATEGORY_PORTION_DEFAULTS: dict[str, dict[str, float]] = {
+    # Composed dishes, frozen meals — hearty plate-sized portions
+    "prepared & frozen meals": {
+        "serving": 350, "portion": 350, "plate": 400, "bowl": 400,
+        "half": 175, "can": 400, "packet": 300, "default": 350,
+    },
+    # Cooked pasta/rice — pasta triples in weight when cooked
+    "grains & pasta": {
+        "plate": 280, "bowl": 280, "cup": 200, "cup cooked": 200,
+        "serving": 200, "portion": 150, "default": 120,
+    },
+    # Protein cuts — moderate portions, fillet-sized
+    "meat": {
+        "serving": 150, "portion": 150, "slice": 80, "fillet": 170,
+        "steak": 225, "patty": 120, "piece": 120, "default": 150,
+    },
+    "poultry": {
+        "serving": 150, "portion": 150, "breast": 175, "thigh": 120,
+        "wing": 90, "piece": 120, "default": 150,
+    },
+    "fish & seafood": {
+        "serving": 140, "fillet": 150, "portion": 140, "piece": 120, "default": 140,
+    },
+    # Vegetables — cup or bowl-based
+    "vegetables": {
+        "serving": 120, "cup": 120, "bowl": 200, "portion": 150,
+        "handful": 60, "plate": 200, "default": 120,
+    },
+    # Fruits — piece or cup-based
+    "fruits": {
+        "serving": 150, "piece": 150, "cup": 150, "handful": 100,
+        "bowl": 200, "default": 150,
+    },
+    # Beverages — glass or can-based
+    "beverages": {
+        "glass": 240, "cup": 240, "mug": 300, "bottle": 500,
+        "can": 330, "shot": 30, "serving": 240, "default": 240,
+    },
+    # Dairy items vary widely — use conservative serving
+    "dairy & eggs": {
+        "glass": 240, "cup": 240, "slice": 30, "serving": 150,
+        "portion": 150, "bowl": 200, "default": 150,
+    },
+    # Baked goods — slice or piece-based
+    "baked goods": {
+        "slice": 40, "piece": 80, "serving": 80, "roll": 50,
+        "muffin": 100, "default": 80,
+    },
+    # Snacks — small handfuls or packets
+    "snacks": {
+        "serving": 30, "handful": 30, "packet": 25, "bag": 50,
+        "bowl": 50, "default": 30,
+    },
+    # Confectionery — very small amounts
+    "sweets & confectionery": {
+        "serving": 40, "piece": 15, "scoop": 60, "bar": 50,
+        "square": 10, "default": 40,
+    },
+    # Condiments — tablespoon-level
+    "condiments & sauces": {
+        "tbsp": 15, "tablespoon": 15, "tsp": 5, "teaspoon": 5,
+        "serving": 15, "cup": 240, "default": 15,
+    },
+    # Fats — very small amounts
+    "fats & oils": {
+        "tbsp": 14, "tablespoon": 14, "tsp": 5, "teaspoon": 5,
+        "serving": 14, "default": 14,
+    },
+    # Soups — bowl or cup-based
+    "soups": {
+        "bowl": 350, "cup": 240, "serving": 300, "plate": 400,
+        "mug": 300, "default": 300,
+    },
+    # Legumes — cooked cup-based
+    "legumes & beans": {
+        "cup": 180, "serving": 150, "bowl": 200, "portion": 150, "default": 150,
+    },
+    # Plant-based — similar to dairy / meat substitutes
+    "plant-based alternatives": {
+        "glass": 240, "cup": 240, "serving": 150, "piece": 100,
+        "portion": 150, "default": 150,
+    },
+    # Supplements — scoop / serving
+    "supplements": {
+        "scoop": 30, "serving": 30, "tbsp": 15, "tsp": 5, "default": 30,
+    },
+}
 
 
 def _load_embed_model():
@@ -95,6 +197,147 @@ def _build_l2_embed_index() -> None:
     _l2_vecs = np.array(vecs, dtype="float32")
     _l2_embed_loaded = True
     print(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
+
+
+def _load_food_index() -> dict:
+    """Lazy-load and build the food_ontology_300 lookup index."""
+    global _food_index
+    if _food_index is not None:
+        return _food_index
+    ont_path = Path(__file__).resolve().parent.parent / "food_ontology_300.json"
+    if not ont_path.exists():
+        _food_index = {}
+        return _food_index
+    with open(ont_path) as f:
+        ontology = json.load(f)
+    index: dict = {}
+    for food in ontology.get("foods", []):
+        fid = food.get("food_id") or food.get("item_id", "")
+        keys = {fid, food.get("label", ""), *food.get("aliases", [])}
+        for k in keys:
+            if k:
+                index[k.strip().lower().replace("-", " ")] = food
+    _food_index = index
+    return _food_index
+
+
+def _load_user_prefs_for_uid(uid: str) -> dict:
+    """Return item_name → pref_dict for the given uid from user_prefs.json."""
+    try:
+        with open(config.CALIBRATION_FILE) as f:
+            return json.load(f).get(uid, {})
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _load_portion_defaults_flat() -> dict:
+    """Load portion_defaults.json (flat item → {default_grams, unit})."""
+    global _portion_defaults_ont
+    if _portion_defaults_ont is not None:
+        return _portion_defaults_ont
+    try:
+        with open(config.PORTION_DEFAULTS_FILE) as f:
+            _portion_defaults_ont = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        _portion_defaults_ont = {}
+    return _portion_defaults_ont
+
+
+def resolve_portion_hint(
+    item_name: str,
+    quantity_parsed: float | None,
+    unit_hint: str | None,
+    uid: str,
+    cat_l1: str,
+) -> dict:
+    """
+    Resolve portion size in grams through a 4-tier priority chain.
+
+    Tier 1  User preferences (user_prefs.json) — personalized serving sizes
+    Tier 2  food_ontology_300 — 300 known foods with per-unit gram weights
+    Tier 3  Category-level defaults — per L1 category + unit type
+    Tier 4  portion_defaults.json — simple flat lookup
+    Tier 5  100 g fallback
+
+    quantity_parsed acts as a multiplier (e.g. 3 slices × 125 g = 375 g).
+    Explicit gram specifications (unit_hint = "g"/"ml") bypass all tiers.
+
+    Returns {"grams": float, "unit": str, "source": str}
+    """
+    multiplier = float(quantity_parsed) if quantity_parsed is not None else 1.0
+    key = item_name.lower().strip().replace("-", " ")
+
+    # Explicit gram/ml spec — quantity_parsed IS the gram amount
+    if unit_hint and unit_hint.lower().strip() in ("g", "gram", "grams", "ml"):
+        grams = float(quantity_parsed) if quantity_parsed is not None else 100.0
+        return {"grams": grams, "unit": unit_hint.lower(), "source": "explicit_grams"}
+
+    # Normalize unit using UNIT_ALIASES from food_portion_lookup
+    norm_unit: str | None = None
+    if unit_hint:
+        u = unit_hint.lower().strip()
+        norm_unit = _UNIT_ALIASES.get(u, u)
+
+    # ── Tier 1: User preferences ──────────────────────────────────────────
+    if uid:
+        user_prefs = _load_user_prefs_for_uid(uid)
+        if key in user_prefs:
+            pref_grams = float(user_prefs[key].get("preferred_grams", 0))
+            if pref_grams > 0:
+                return {
+                    "grams": round(pref_grams * multiplier, 1),
+                    "unit": user_prefs[key].get("preferred_unit", "g"),
+                    "source": "user_pref",
+                }
+
+    # ── Tier 2: food_ontology_300 ──────────────────────────────────────────
+    food_entry = _load_food_index().get(key)
+    if food_entry:
+        common_units = food_entry.get("common_units", {})
+        if norm_unit and norm_unit in common_units:
+            return {
+                "grams": round(float(common_units[norm_unit]) * multiplier, 1),
+                "unit": norm_unit,
+                "source": "ontology_unit",
+            }
+        default_grams = float(food_entry.get("default_grams", 0))
+        if default_grams > 0:
+            return {
+                "grams": round(default_grams * multiplier, 1),
+                "unit": food_entry.get("default_unit", "g"),
+                "source": "ontology_default",
+            }
+
+    # ── Tier 3: Category-level defaults ────────────────────────────────────
+    cat_units = _CATEGORY_PORTION_DEFAULTS.get(cat_l1.lower().strip(), {})
+    if cat_units:
+        if norm_unit and norm_unit in cat_units:
+            return {
+                "grams": round(float(cat_units[norm_unit]) * multiplier, 1),
+                "unit": norm_unit,
+                "source": "category_unit",
+            }
+        cat_default = cat_units.get("default", 0)
+        if cat_default > 0:
+            return {
+                "grams": round(float(cat_default) * multiplier, 1),
+                "unit": "serving",
+                "source": "category_default",
+            }
+
+    # ── Tier 4: portion_defaults.json ──────────────────────────────────────
+    flat = _load_portion_defaults_flat()
+    if key in flat:
+        flat_grams = float(flat[key].get("default_grams", 0))
+        if flat_grams > 0:
+            return {
+                "grams": round(flat_grams * multiplier, 1),
+                "unit": flat[key].get("unit", "g"),
+                "source": "portion_defaults",
+            }
+
+    # ── Tier 5: fallback ───────────────────────────────────────────────────
+    return {"grams": round(100.0 * multiplier, 1), "unit": "g", "source": "fallback"}
 
 
 def classify_l2_semantic(item_name: str, allowed_l1s: list[str]) -> str:
@@ -368,6 +611,14 @@ def apply_ontology_filter(extraction: dict) -> dict:
         }
         rank_str = " > ".join(f"{r!r}" for r in ranked_l1) if ranked_l1 else "'other'"
         print(f"   {name!r:30s} [{source}] → {rank_str}")
+
+        # Resolve portion hint (Tier 1-5 chain) and attach to both dicts
+        qty_parsed = item.get("quantity_parsed")
+        unit_h = item.get("unit_hint")
+        item_uid = item.get("uid", "")
+        portion_hint_result = resolve_portion_hint(name, qty_parsed, unit_h, item_uid, l1)
+        ontology[key]["portion_hint"] = portion_hint_result
+        items[key]["portion_hint"] = portion_hint_result
 
     # Build category_hints aligned with the queries list
     item_keys = list(items.keys())

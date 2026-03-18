@@ -31,6 +31,12 @@ what they ate or drank. Your job:
    - "item_name": a short, clear name (e.g. "pepperoni pizza")
    - "quantity_raw": the amount as spoken (e.g. "3", "half a", "a bowl of"), \
      or null if not mentioned
+   - "quantity_parsed": numeric value of the quantity (e.g. "three" → 3, \
+     "half a" → 0.5, "2 full" → 2, "a bowl of" → 1, "three and a half" → 3.5), \
+     or null if quantity_raw is null. Encode fractions directly as decimals.
+   - "unit_hint": the serving unit if explicitly mentioned (e.g. "slice", \
+     "glass", "bowl", "cup", "piece", "plate", "handful", "can", "bottle"), \
+     or null if no specific unit was spoken.
    - "description": describe the processing degree or context \
      (e.g. "frozen", "homemade", "raw fruit", "fried", "boiled", "grilled", \
       "restaurant", "canned", "fresh"). If unknown, write "unspecified".
@@ -57,6 +63,8 @@ Return ONLY valid JSON matching this schema exactly:
     "item1": {
       "item_name": "<string>",
       "quantity_raw": "<string or null>",
+      "quantity_parsed": <number or null>,
+      "unit_hint": "<string or null>",
       "description": "<string>",
       "category_ranks": ["<category>"]
     }

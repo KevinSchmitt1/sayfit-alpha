@@ -1,0 +1,4173 @@
+{
+  "meta": {
+    "ontology_name": "voice_nutrition_food_portion_ontology",
+    "version": "v1_seed_300",
+    "entry_count": 300,
+    "notes": [
+      "Default grams are engineering defaults for speech logging, not medical truth.",
+      "Generic units like bowl, plate, serving, handful, and slice are food-specific where possible.",
+      "Fractionable foods can be scaled with modifiers like half or quarter."
+    ],
+    "fields": {
+      "item_id": "stable machine-friendly identifier",
+      "label": "canonical display name",
+      "category": "high-level ontology bucket",
+      "default_unit": "preferred default unit for voice parsing",
+      "default_grams": "default portion weight in grams",
+      "fractionable": "whether whole/half/quarter scaling makes sense",
+      "common_units": "common unit-to-gram defaults for this food",
+      "aliases": "simple synonym list for matching"
+    }
+  },
+  "foods": [
+    {
+      "item_id": "milk_whole",
+      "label": "whole milk",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "splash": 15,
+        "bottle": 500
+      },
+      "aliases": [
+        "milk",
+        "full fat milk"
+      ]
+    },
+    {
+      "item_id": "milk_lowfat",
+      "label": "low-fat milk",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "splash": 15,
+        "bottle": 500
+      },
+      "aliases": [
+        "low fat milk",
+        "semi skimmed milk"
+      ]
+    },
+    {
+      "item_id": "almond_milk",
+      "label": "almond milk",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "splash": 15,
+        "bottle": 1000
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "soy_milk",
+      "label": "soy milk",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "splash": 15,
+        "bottle": 1000
+      },
+      "aliases": [
+        "soya milk"
+      ]
+    },
+    {
+      "item_id": "oat_milk",
+      "label": "oat milk",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "splash": 15,
+        "bottle": 1000
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "water",
+      "label": "water",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "bottle_small": 500,
+        "bottle_large": 1000
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "orange_juice",
+      "label": "orange juice",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "bottle": 1000
+      },
+      "aliases": [
+        "oj"
+      ]
+    },
+    {
+      "item_id": "apple_juice",
+      "label": "apple juice",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "bottle": 1000
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "grape_juice",
+      "label": "grape juice",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "cup": 240,
+        "bottle": 1000
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "smoothie",
+      "label": "smoothie",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 300,
+        "bottle": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "protein_shake",
+      "label": "protein shake",
+      "category": "beverages",
+      "default_unit": "shake",
+      "default_grams": 330.0,
+      "fractionable": false,
+      "common_units": {
+        "shake": 330,
+        "bottle": 500
+      },
+      "aliases": [
+        "shake"
+      ]
+    },
+    {
+      "item_id": "coffee_black",
+      "label": "black coffee",
+      "category": "beverages",
+      "default_unit": "cup",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 240,
+        "mug": 350
+      },
+      "aliases": [
+        "coffee"
+      ]
+    },
+    {
+      "item_id": "coffee_latte",
+      "label": "latte",
+      "category": "beverages",
+      "default_unit": "cup",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 300,
+        "mug": 350
+      },
+      "aliases": [
+        "caffe latte"
+      ]
+    },
+    {
+      "item_id": "cappuccino",
+      "label": "cappuccino",
+      "category": "beverages",
+      "default_unit": "cup",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 240,
+        "mug": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "espresso",
+      "label": "espresso",
+      "category": "beverages",
+      "default_unit": "shot",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "shot": 30,
+        "double_shot": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tea_black",
+      "label": "black tea",
+      "category": "beverages",
+      "default_unit": "cup",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 240,
+        "mug": 350
+      },
+      "aliases": [
+        "tea"
+      ]
+    },
+    {
+      "item_id": "green_tea",
+      "label": "green tea",
+      "category": "beverages",
+      "default_unit": "cup",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 240,
+        "mug": 350
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "hot_chocolate",
+      "label": "hot chocolate",
+      "category": "beverages",
+      "default_unit": "mug",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 240,
+        "mug": 300
+      },
+      "aliases": [
+        "cocoa"
+      ]
+    },
+    {
+      "item_id": "cola",
+      "label": "cola",
+      "category": "beverages",
+      "default_unit": "can",
+      "default_grams": 330.0,
+      "fractionable": false,
+      "common_units": {
+        "can": 330,
+        "bottle_small": 500
+      },
+      "aliases": [
+        "coke"
+      ]
+    },
+    {
+      "item_id": "lemonade",
+      "label": "lemonade",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 240.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 240,
+        "can": 330,
+        "bottle_small": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "energy_drink",
+      "label": "energy drink",
+      "category": "beverages",
+      "default_unit": "can",
+      "default_grams": 250.0,
+      "fractionable": false,
+      "common_units": {
+        "can": 250,
+        "bottle": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sports_drink",
+      "label": "sports drink",
+      "category": "beverages",
+      "default_unit": "bottle",
+      "default_grams": 500.0,
+      "fractionable": false,
+      "common_units": {
+        "bottle": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "beer",
+      "label": "beer",
+      "category": "beverages",
+      "default_unit": "bottle",
+      "default_grams": 330.0,
+      "fractionable": false,
+      "common_units": {
+        "bottle": 330,
+        "can": 330,
+        "pint": 473
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "red_wine",
+      "label": "red wine",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 150,
+        "bottle": 750
+      },
+      "aliases": [
+        "wine"
+      ]
+    },
+    {
+      "item_id": "white_wine",
+      "label": "white wine",
+      "category": "beverages",
+      "default_unit": "glass",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "glass": 150,
+        "bottle": 750
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "apple",
+      "label": "apple",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90,
+        "slice": 20
+      },
+      "aliases": [
+        "medium apple"
+      ]
+    },
+    {
+      "item_id": "banana",
+      "label": "banana",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 120.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 120,
+        "half": 60
+      },
+      "aliases": [
+        "medium banana"
+      ]
+    },
+    {
+      "item_id": "orange",
+      "label": "orange",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 130.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 130,
+        "half": 65
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mandarin",
+      "label": "mandarin",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 90.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 90,
+        "half": 45
+      },
+      "aliases": [
+        "clementine",
+        "tangerine"
+      ]
+    },
+    {
+      "item_id": "pear",
+      "label": "pear",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "peach",
+      "label": "peach",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 150.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 150,
+        "half": 75
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "nectarine",
+      "label": "nectarine",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 140.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 140,
+        "half": 70
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "plum",
+      "label": "plum",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 70.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 70,
+        "half": 35
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "apricot",
+      "label": "apricot",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 35.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 35,
+        "half": 17.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mango",
+      "label": "mango",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 200.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 200,
+        "half": 100,
+        "cup": 165
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pineapple",
+      "label": "pineapple",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 165.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 165,
+        "slice": 80,
+        "ring": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "watermelon",
+      "label": "watermelon",
+      "category": "fruits",
+      "default_unit": "slice",
+      "default_grams": 280.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 280,
+        "cup": 150,
+        "wedge": 400
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cantaloupe",
+      "label": "cantaloupe",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 160.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 160,
+        "slice": 120
+      },
+      "aliases": [
+        "melon"
+      ]
+    },
+    {
+      "item_id": "honeydew",
+      "label": "honeydew melon",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 170,
+        "slice": 130
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "grapes",
+      "label": "grapes",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 150,
+        "handful": 75
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "strawberries",
+      "label": "strawberries",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 150,
+        "handful": 75
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "blueberries",
+      "label": "blueberries",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 148.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 148,
+        "handful": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "raspberries",
+      "label": "raspberries",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 123.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 123,
+        "handful": 50
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "blackberries",
+      "label": "blackberries",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 144.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 144,
+        "handful": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "kiwi",
+      "label": "kiwi",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 75.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 75,
+        "half": 37.5
+      },
+      "aliases": [
+        "kiwifruit"
+      ]
+    },
+    {
+      "item_id": "papaya",
+      "label": "papaya",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 145.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 145,
+        "half": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "guava",
+      "label": "guava",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 85.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 85,
+        "half": 42.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pomegranate",
+      "label": "pomegranate",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 280.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 280,
+        "half": 140,
+        "cup_arils": 175
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cherries",
+      "label": "cherries",
+      "category": "fruits",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 140,
+        "handful": 70
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "dates",
+      "label": "dates",
+      "category": "fruits",
+      "default_unit": "piece",
+      "default_grams": 24.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 24,
+        "serving_3": 72
+      },
+      "aliases": [
+        "medjool date"
+      ]
+    },
+    {
+      "item_id": "figs_fresh",
+      "label": "fresh figs",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 50.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 50,
+        "half": 25
+      },
+      "aliases": [
+        "fig"
+      ]
+    },
+    {
+      "item_id": "raisins",
+      "label": "raisins",
+      "category": "fruits",
+      "default_unit": "tbsp",
+      "default_grams": 9.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 9,
+        "handful": 40,
+        "small_box": 28
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "prunes",
+      "label": "prunes",
+      "category": "fruits",
+      "default_unit": "piece",
+      "default_grams": 10.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 10,
+        "serving_5": 50
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lemon",
+      "label": "lemon",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 65.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 65,
+        "half": 32.5,
+        "wedge": 10
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lime",
+      "label": "lime",
+      "category": "fruits",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30,
+        "wedge": 8
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "carrot",
+      "label": "carrot",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "cup_chopped": 128
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "broccoli",
+      "label": "broccoli",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 90.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 90,
+        "floret": 15,
+        "head": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cauliflower",
+      "label": "cauliflower",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 100.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 100,
+        "floret": 20,
+        "head": 600
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "spinach",
+      "label": "spinach",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_raw": 30,
+        "cup_cooked": 180,
+        "handful": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "kale",
+      "label": "kale",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 67.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_raw": 67,
+        "cup_cooked": 130
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lettuce",
+      "label": "lettuce",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 35.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 35,
+        "leaf": 10,
+        "head": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "romaine",
+      "label": "romaine lettuce",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 47.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 47,
+        "leaf": 12,
+        "head": 620
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cucumber",
+      "label": "cucumber",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 300.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 300,
+        "half": 150,
+        "cup_sliced": 104
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tomato",
+      "label": "tomato",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 120.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 120,
+        "half": 60,
+        "slice": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cherry_tomatoes",
+      "label": "cherry tomatoes",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 150,
+        "piece": 17
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "onion",
+      "label": "onion",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 110.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 110,
+        "half": 55,
+        "cup_chopped": 160
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "red_onion",
+      "label": "red onion",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 110.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 110,
+        "half": 55,
+        "cup_chopped": 160
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "garlic",
+      "label": "garlic",
+      "category": "vegetables",
+      "default_unit": "clove",
+      "default_grams": 5.0,
+      "fractionable": false,
+      "common_units": {
+        "clove": 5,
+        "bulb": 50
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "bell_pepper",
+      "label": "bell pepper",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 150.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 150,
+        "half": 75,
+        "cup_chopped": 149
+      },
+      "aliases": [
+        "pepper"
+      ]
+    },
+    {
+      "item_id": "jalapeno",
+      "label": "jalapeño",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 15.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 15,
+        "slice": 2
+      },
+      "aliases": [
+        "jalapeno"
+      ]
+    },
+    {
+      "item_id": "chili_pepper",
+      "label": "chili pepper",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 20.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 20,
+        "slice": 2
+      },
+      "aliases": [
+        "red chili"
+      ]
+    },
+    {
+      "item_id": "zucchini",
+      "label": "zucchini",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 200.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 200,
+        "half": 100,
+        "cup_sliced": 120
+      },
+      "aliases": [
+        "courgette"
+      ]
+    },
+    {
+      "item_id": "eggplant",
+      "label": "eggplant",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 450.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 450,
+        "half": 225,
+        "cup_cubed": 82
+      },
+      "aliases": [
+        "aubergine"
+      ]
+    },
+    {
+      "item_id": "mushrooms",
+      "label": "mushrooms",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 70.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 70,
+        "piece": 18
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "green_beans",
+      "label": "green beans",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 125.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 125,
+        "handful": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "peas",
+      "label": "peas",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 145.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 145,
+        "tbsp": 12
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "corn",
+      "label": "corn",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 165.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 165,
+        "ear": 90
+      },
+      "aliases": [
+        "sweetcorn"
+      ]
+    },
+    {
+      "item_id": "potato",
+      "label": "potato",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 170.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 170,
+        "half": 85,
+        "cup_diced": 150
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sweet_potato",
+      "label": "sweet potato",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90,
+        "cup_cubed": 133
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pumpkin",
+      "label": "pumpkin",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 245.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_cubed": 245,
+        "slice": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "butternut_squash",
+      "label": "butternut squash",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_cubed": 140,
+        "half": 600
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cabbage",
+      "label": "cabbage",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 90.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_shredded": 90,
+        "head": 900
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "red_cabbage",
+      "label": "red cabbage",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 90.0,
+      "fractionable": false,
+      "common_units": {
+        "cup_shredded": 90,
+        "head": 900
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "brussels_sprouts",
+      "label": "brussels sprouts",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 156.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 156,
+        "piece": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "asparagus",
+      "label": "asparagus",
+      "category": "vegetables",
+      "default_unit": "cup",
+      "default_grams": 134.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 134,
+        "spear": 12
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "celery",
+      "label": "celery",
+      "category": "vegetables",
+      "default_unit": "stalk",
+      "default_grams": 40.0,
+      "fractionable": false,
+      "common_units": {
+        "stalk": 40,
+        "cup_chopped": 100
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "radish",
+      "label": "radish",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 5.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 5,
+        "cup_sliced": 116
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "beetroot",
+      "label": "beetroot",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 80.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 80,
+        "half": 40,
+        "cup_cooked": 170
+      },
+      "aliases": [
+        "beet"
+      ]
+    },
+    {
+      "item_id": "avocado",
+      "label": "avocado",
+      "category": "vegetables",
+      "default_unit": "whole",
+      "default_grams": 150.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 150,
+        "half": 75,
+        "slice": 15
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "olives",
+      "label": "olives",
+      "category": "vegetables",
+      "default_unit": "piece",
+      "default_grams": 4.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 4,
+        "handful": 30,
+        "cup": 135
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "white_rice_cooked",
+      "label": "white rice cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 140,
+        "bowl": 280,
+        "plate": 280
+      },
+      "aliases": [
+        "rice"
+      ]
+    },
+    {
+      "item_id": "brown_rice_cooked",
+      "label": "brown rice cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 150,
+        "bowl": 300,
+        "plate": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "white_rice_dry",
+      "label": "white rice dry",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 45.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 45,
+        "cup": 185
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "brown_rice_dry",
+      "label": "brown rice dry",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 45.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 45,
+        "cup": 190
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pasta_cooked",
+      "label": "pasta cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 140,
+        "plate": 280,
+        "bowl": 280
+      },
+      "aliases": [
+        "pasta",
+        "noodles"
+      ]
+    },
+    {
+      "item_id": "spaghetti_cooked",
+      "label": "spaghetti cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 140,
+        "plate": 280,
+        "bowl": 280
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pasta_dry",
+      "label": "pasta dry",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 55.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 55,
+        "cup": 100
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "spaghetti_dry",
+      "label": "spaghetti dry",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 55.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 55
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "oats_dry",
+      "label": "dry oats",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 40.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 40,
+        "cup": 80
+      },
+      "aliases": [
+        "oatmeal dry"
+      ]
+    },
+    {
+      "item_id": "porridge",
+      "label": "porridge",
+      "category": "grains_and_starches",
+      "default_unit": "bowl",
+      "default_grams": 250.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 250,
+        "bowl": 300
+      },
+      "aliases": [
+        "oatmeal"
+      ]
+    },
+    {
+      "item_id": "quinoa_cooked",
+      "label": "quinoa cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 185.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 185,
+        "bowl": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "quinoa_dry",
+      "label": "quinoa dry",
+      "category": "grains_and_starches",
+      "default_unit": "serving",
+      "default_grams": 45.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 45,
+        "cup": 170
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "couscous_cooked",
+      "label": "couscous cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 157.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 157,
+        "bowl": 280
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "bulgur_cooked",
+      "label": "bulgur cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 182.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 182,
+        "bowl": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "barley_cooked",
+      "label": "barley cooked",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 157.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 157,
+        "bowl": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "bread_slice",
+      "label": "bread slice",
+      "category": "grains_and_starches",
+      "default_unit": "slice",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 30
+      },
+      "aliases": [
+        "bread"
+      ]
+    },
+    {
+      "item_id": "wholegrain_bread_slice",
+      "label": "wholegrain bread slice",
+      "category": "grains_and_starches",
+      "default_unit": "slice",
+      "default_grams": 35.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 35
+      },
+      "aliases": [
+        "whole wheat bread"
+      ]
+    },
+    {
+      "item_id": "bagel",
+      "label": "bagel",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 95.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 95,
+        "half": 47.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tortilla_small",
+      "label": "small tortilla",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 45.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 45,
+        "half": 22.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tortilla_large",
+      "label": "large tortilla",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 70.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 70,
+        "half": 35
+      },
+      "aliases": [
+        "wrap tortilla"
+      ]
+    },
+    {
+      "item_id": "naan",
+      "label": "naan bread",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 120.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 120,
+        "half": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pita",
+      "label": "pita bread",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "crackers",
+      "label": "crackers",
+      "category": "grains_and_starches",
+      "default_unit": "piece",
+      "default_grams": 5.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 5,
+        "serving_5": 25
+      },
+      "aliases": [
+        "cracker"
+      ]
+    },
+    {
+      "item_id": "rice_cakes",
+      "label": "rice cakes",
+      "category": "grains_and_starches",
+      "default_unit": "piece",
+      "default_grams": 9.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 9
+      },
+      "aliases": [
+        "rice cake"
+      ]
+    },
+    {
+      "item_id": "pretzel",
+      "label": "pretzel",
+      "category": "grains_and_starches",
+      "default_unit": "whole",
+      "default_grams": 35.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 35,
+        "half": 17.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "granola",
+      "label": "granola",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 120,
+        "serving": 55
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "breakfast_cereal",
+      "label": "breakfast cereal",
+      "category": "grains_and_starches",
+      "default_unit": "bowl",
+      "default_grams": 40.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 40,
+        "bowl": 40,
+        "cup": 30
+      },
+      "aliases": [
+        "cereal"
+      ]
+    },
+    {
+      "item_id": "mashed_potatoes",
+      "label": "mashed potatoes",
+      "category": "grains_and_starches",
+      "default_unit": "cup",
+      "default_grams": 210.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 210,
+        "scoop": 100,
+        "plate": 250
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "french_fries",
+      "label": "french fries",
+      "category": "grains_and_starches",
+      "default_unit": "portion",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "small_portion": 90,
+        "medium_portion": 120,
+        "large_portion": 160
+      },
+      "aliases": [
+        "fries"
+      ]
+    },
+    {
+      "item_id": "hash_browns",
+      "label": "hash browns",
+      "category": "grains_and_starches",
+      "default_unit": "piece",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 60,
+        "serving_2": 120
+      },
+      "aliases": [
+        "hash brown"
+      ]
+    },
+    {
+      "item_id": "egg",
+      "label": "egg",
+      "category": "dairy_and_eggs",
+      "default_unit": "whole",
+      "default_grams": 50.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 50,
+        "half": 25
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "egg_white",
+      "label": "egg white",
+      "category": "dairy_and_eggs",
+      "default_unit": "whole",
+      "default_grams": 33.0,
+      "fractionable": false,
+      "common_units": {
+        "whole": 33
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "egg_yolk",
+      "label": "egg yolk",
+      "category": "dairy_and_eggs",
+      "default_unit": "whole",
+      "default_grams": 17.0,
+      "fractionable": false,
+      "common_units": {
+        "whole": 17
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "greek_yogurt",
+      "label": "greek yogurt",
+      "category": "dairy_and_eggs",
+      "default_unit": "pot",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 170,
+        "cup": 245,
+        "tbsp": 15
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "plain_yogurt",
+      "label": "plain yogurt",
+      "category": "dairy_and_eggs",
+      "default_unit": "pot",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 170,
+        "cup": 245,
+        "tbsp": 15
+      },
+      "aliases": [
+        "yogurt"
+      ]
+    },
+    {
+      "item_id": "skyr",
+      "label": "skyr",
+      "category": "dairy_and_eggs",
+      "default_unit": "pot",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 170,
+        "cup": 245
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cottage_cheese",
+      "label": "cottage cheese",
+      "category": "dairy_and_eggs",
+      "default_unit": "cup",
+      "default_grams": 225.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 225,
+        "tbsp": 14,
+        "pot": 200
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "quark",
+      "label": "quark",
+      "category": "dairy_and_eggs",
+      "default_unit": "pot",
+      "default_grams": 250.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 250,
+        "tbsp": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cream_cheese",
+      "label": "cream cheese",
+      "category": "dairy_and_eggs",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "tsp": 5,
+        "pot": 200
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cheddar_cheese",
+      "label": "cheddar cheese",
+      "category": "dairy_and_eggs",
+      "default_unit": "slice",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 25,
+        "cube": 15,
+        "serving": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mozzarella",
+      "label": "mozzarella",
+      "category": "dairy_and_eggs",
+      "default_unit": "ball",
+      "default_grams": 125.0,
+      "fractionable": true,
+      "common_units": {
+        "ball": 125,
+        "slice": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "feta",
+      "label": "feta",
+      "category": "dairy_and_eggs",
+      "default_unit": "serving",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 30,
+        "cube": 15,
+        "tbsp_crumbled": 10
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "parmesan",
+      "label": "parmesan",
+      "category": "dairy_and_eggs",
+      "default_unit": "tbsp",
+      "default_grams": 5.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 5,
+        "serving": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "gouda",
+      "label": "gouda",
+      "category": "dairy_and_eggs",
+      "default_unit": "slice",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 25,
+        "cube": 15,
+        "serving": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "swiss_cheese",
+      "label": "swiss cheese",
+      "category": "dairy_and_eggs",
+      "default_unit": "slice",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 25,
+        "serving": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "ricotta",
+      "label": "ricotta",
+      "category": "dairy_and_eggs",
+      "default_unit": "cup",
+      "default_grams": 246.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 246,
+        "tbsp": 15
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sour_cream",
+      "label": "sour cream",
+      "category": "dairy_and_eggs",
+      "default_unit": "tbsp",
+      "default_grams": 12.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 12,
+        "pot": 200
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "whipping_cream",
+      "label": "whipping cream",
+      "category": "dairy_and_eggs",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": [
+        "cream"
+      ]
+    },
+    {
+      "item_id": "ice_cream",
+      "label": "ice cream",
+      "category": "dairy_and_eggs",
+      "default_unit": "scoop",
+      "default_grams": 65.0,
+      "fractionable": false,
+      "common_units": {
+        "scoop": 65,
+        "cup": 130
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "frozen_yogurt",
+      "label": "frozen yogurt",
+      "category": "dairy_and_eggs",
+      "default_unit": "scoop",
+      "default_grams": 70.0,
+      "fractionable": false,
+      "common_units": {
+        "scoop": 70,
+        "cup": 140
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chicken_breast",
+      "label": "chicken breast",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 170,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chicken_thigh",
+      "label": "chicken thigh",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 100.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 100,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chicken_drumstick",
+      "label": "chicken drumstick",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 120
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chicken_wing",
+      "label": "chicken wing",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 90.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 90
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "turkey_breast",
+      "label": "turkey breast",
+      "category": "proteins",
+      "default_unit": "slice",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 30,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "ground_beef",
+      "label": "ground beef cooked",
+      "category": "proteins",
+      "default_unit": "serving",
+      "default_grams": 85.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 85,
+        "cup": 150
+      },
+      "aliases": [
+        "minced beef"
+      ]
+    },
+    {
+      "item_id": "beef_steak",
+      "label": "beef steak",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 200.0,
+      "fractionable": true,
+      "common_units": {
+        "piece": 200,
+        "half": 100,
+        "serving": 85
+      },
+      "aliases": [
+        "steak"
+      ]
+    },
+    {
+      "item_id": "beef_roast",
+      "label": "beef roast",
+      "category": "proteins",
+      "default_unit": "slice",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 60,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pork_chop",
+      "label": "pork chop",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 170.0,
+      "fractionable": true,
+      "common_units": {
+        "piece": 170,
+        "half": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pork_tenderloin",
+      "label": "pork tenderloin",
+      "category": "proteins",
+      "default_unit": "slice",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 60,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "bacon",
+      "label": "bacon",
+      "category": "proteins",
+      "default_unit": "slice",
+      "default_grams": 8.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 8,
+        "rasher": 8
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "ham",
+      "label": "ham",
+      "category": "proteins",
+      "default_unit": "slice",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 25,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sausage_link",
+      "label": "sausage link",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 75.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 75,
+        "link": 75
+      },
+      "aliases": [
+        "sausage"
+      ]
+    },
+    {
+      "item_id": "meatballs",
+      "label": "meatballs",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 35.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 35,
+        "serving_4": 140
+      },
+      "aliases": [
+        "meatball"
+      ]
+    },
+    {
+      "item_id": "burger_patty",
+      "label": "burger patty",
+      "category": "proteins",
+      "default_unit": "patty",
+      "default_grams": 110.0,
+      "fractionable": false,
+      "common_units": {
+        "patty": 110
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "salmon_fillet",
+      "label": "salmon fillet",
+      "category": "proteins",
+      "default_unit": "fillet",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "fillet": 150,
+        "serving": 85
+      },
+      "aliases": [
+        "salmon"
+      ]
+    },
+    {
+      "item_id": "tuna_fillet",
+      "label": "tuna fillet",
+      "category": "proteins",
+      "default_unit": "fillet",
+      "default_grams": 170.0,
+      "fractionable": false,
+      "common_units": {
+        "fillet": 170,
+        "serving": 85
+      },
+      "aliases": [
+        "tuna steak"
+      ]
+    },
+    {
+      "item_id": "cod_fillet",
+      "label": "cod fillet",
+      "category": "proteins",
+      "default_unit": "fillet",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "fillet": 150,
+        "serving": 85
+      },
+      "aliases": [
+        "cod"
+      ]
+    },
+    {
+      "item_id": "shrimp",
+      "label": "shrimp",
+      "category": "proteins",
+      "default_unit": "piece",
+      "default_grams": 12.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 12,
+        "serving_6": 72,
+        "cup": 140
+      },
+      "aliases": [
+        "prawn"
+      ]
+    },
+    {
+      "item_id": "crab_meat",
+      "label": "crab meat",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 140.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 140,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lobster",
+      "label": "lobster",
+      "category": "proteins",
+      "default_unit": "tail",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "tail": 120,
+        "serving": 85
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tofu_firm",
+      "label": "firm tofu",
+      "category": "proteins",
+      "default_unit": "block",
+      "default_grams": 350.0,
+      "fractionable": true,
+      "common_units": {
+        "block": 350,
+        "half": 175,
+        "serving": 85
+      },
+      "aliases": [
+        "tofu"
+      ]
+    },
+    {
+      "item_id": "tempeh",
+      "label": "tempeh",
+      "category": "proteins",
+      "default_unit": "serving",
+      "default_grams": 85.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 85,
+        "block": 250
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "seitan",
+      "label": "seitan",
+      "category": "proteins",
+      "default_unit": "serving",
+      "default_grams": 85.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 85,
+        "slice": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lentils_cooked",
+      "label": "cooked lentils",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 198.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 198,
+        "bowl": 300
+      },
+      "aliases": [
+        "lentils"
+      ]
+    },
+    {
+      "item_id": "black_beans_cooked",
+      "label": "cooked black beans",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 172.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 172,
+        "bowl": 300
+      },
+      "aliases": [
+        "black beans"
+      ]
+    },
+    {
+      "item_id": "kidney_beans_cooked",
+      "label": "cooked kidney beans",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 177.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 177,
+        "bowl": 300
+      },
+      "aliases": [
+        "kidney beans"
+      ]
+    },
+    {
+      "item_id": "chickpeas_cooked",
+      "label": "cooked chickpeas",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 164.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 164,
+        "bowl": 300
+      },
+      "aliases": [
+        "chickpeas",
+        "garbanzo beans"
+      ]
+    },
+    {
+      "item_id": "baked_beans",
+      "label": "baked beans",
+      "category": "proteins",
+      "default_unit": "cup",
+      "default_grams": 260.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 260,
+        "half_can": 200,
+        "can": 400
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "hummus",
+      "label": "hummus",
+      "category": "proteins",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "peanut_butter",
+      "label": "peanut butter",
+      "category": "proteins",
+      "default_unit": "tbsp",
+      "default_grams": 16.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 16,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "almonds",
+      "label": "almonds",
+      "category": "proteins",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "cup": 140
+      },
+      "aliases": [
+        "almond"
+      ]
+    },
+    {
+      "item_id": "walnuts",
+      "label": "walnuts",
+      "category": "proteins",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "cup": 100
+      },
+      "aliases": [
+        "walnut"
+      ]
+    },
+    {
+      "item_id": "cashews",
+      "label": "cashews",
+      "category": "proteins",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "cup": 130
+      },
+      "aliases": [
+        "cashew"
+      ]
+    },
+    {
+      "item_id": "mixed_nuts",
+      "label": "mixed nuts",
+      "category": "proteins",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "cup": 135
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "croissant",
+      "label": "croissant",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "muffin_blueberry",
+      "label": "blueberry muffin",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 110.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 110,
+        "half": 55
+      },
+      "aliases": [
+        "muffin"
+      ]
+    },
+    {
+      "item_id": "donut_glazed",
+      "label": "glazed donut",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 55.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 55,
+        "half": 27.5
+      },
+      "aliases": [
+        "doughnut"
+      ]
+    },
+    {
+      "item_id": "pancake",
+      "label": "pancake",
+      "category": "bakery_and_breakfast",
+      "default_unit": "piece",
+      "default_grams": 50.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 50,
+        "stack_3": 150
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "waffle",
+      "label": "waffle",
+      "category": "bakery_and_breakfast",
+      "default_unit": "piece",
+      "default_grams": 75.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 75,
+        "stack_2": 150
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "french_toast",
+      "label": "french toast",
+      "category": "bakery_and_breakfast",
+      "default_unit": "slice",
+      "default_grams": 65.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 65,
+        "serving_2": 130
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "toast",
+      "label": "toast",
+      "category": "bakery_and_breakfast",
+      "default_unit": "slice",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "scrambled_eggs",
+      "label": "scrambled eggs",
+      "category": "bakery_and_breakfast",
+      "default_unit": "portion",
+      "default_grams": 100.0,
+      "fractionable": false,
+      "common_units": {
+        "portion": 100,
+        "serving_2eggs": 100
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "fried_egg",
+      "label": "fried egg",
+      "category": "bakery_and_breakfast",
+      "default_unit": "piece",
+      "default_grams": 50.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 50
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "omelet",
+      "label": "omelet",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90
+      },
+      "aliases": [
+        "omelette"
+      ]
+    },
+    {
+      "item_id": "breakfast_sausage",
+      "label": "breakfast sausage",
+      "category": "bakery_and_breakfast",
+      "default_unit": "piece",
+      "default_grams": 40.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 40,
+        "serving_2": 80
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "breakfast_bacon",
+      "label": "breakfast bacon",
+      "category": "bakery_and_breakfast",
+      "default_unit": "slice",
+      "default_grams": 8.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 8,
+        "rasher": 8
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "granola_bar",
+      "label": "granola bar",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 40.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 40,
+        "half": 20
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "protein_bar",
+      "label": "protein bar",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cinnamon_roll",
+      "label": "cinnamon roll",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 90.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 90,
+        "half": 45
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "danish_pastry",
+      "label": "danish pastry",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 85.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 85,
+        "half": 42.5
+      },
+      "aliases": [
+        "danish"
+      ]
+    },
+    {
+      "item_id": "scone",
+      "label": "scone",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 70.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 70,
+        "half": 35
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "biscuit",
+      "label": "biscuit",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30
+      },
+      "aliases": [
+        "american biscuit"
+      ]
+    },
+    {
+      "item_id": "english_muffin",
+      "label": "english muffin",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 57.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 57,
+        "half": 28.5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "toast_with_butter",
+      "label": "buttered toast",
+      "category": "bakery_and_breakfast",
+      "default_unit": "slice",
+      "default_grams": 35.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 35
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "jam_toast",
+      "label": "jam toast",
+      "category": "bakery_and_breakfast",
+      "default_unit": "slice",
+      "default_grams": 45.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 45
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cereal_with_milk",
+      "label": "cereal with milk",
+      "category": "bakery_and_breakfast",
+      "default_unit": "bowl",
+      "default_grams": 250.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 250
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "overnight_oats",
+      "label": "overnight oats",
+      "category": "bakery_and_breakfast",
+      "default_unit": "jar",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "jar": 300,
+        "cup": 250
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chia_pudding",
+      "label": "chia pudding",
+      "category": "bakery_and_breakfast",
+      "default_unit": "jar",
+      "default_grams": 250.0,
+      "fractionable": false,
+      "common_units": {
+        "jar": 250,
+        "cup": 200
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "breakfast_burrito",
+      "label": "breakfast burrito",
+      "category": "bakery_and_breakfast",
+      "default_unit": "whole",
+      "default_grams": 250.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 250,
+        "half": 125
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pepperoni_pizza",
+      "label": "pepperoni pizza",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 840.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 840,
+        "slice": 105,
+        "half": 420
+      },
+      "aliases": [
+        "pizza pepperoni"
+      ]
+    },
+    {
+      "item_id": "margherita_pizza",
+      "label": "margherita pizza",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 800.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 800,
+        "slice": 100,
+        "half": 400
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cheese_pizza",
+      "label": "cheese pizza",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 840.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 840,
+        "slice": 105,
+        "half": 420
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "veggie_pizza",
+      "label": "veggie pizza",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 780.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 780,
+        "slice": 97.5,
+        "half": 390
+      },
+      "aliases": [
+        "vegetable pizza"
+      ]
+    },
+    {
+      "item_id": "hawaiian_pizza",
+      "label": "hawaiian pizza",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 820.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 820,
+        "slice": 102.5,
+        "half": 410
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "lasagna",
+      "label": "lasagna",
+      "category": "mixed_meals",
+      "default_unit": "piece",
+      "default_grams": 180.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 180,
+        "serving": 180,
+        "plate": 320
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mac_and_cheese",
+      "label": "mac and cheese",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 280.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 180,
+        "bowl": 280,
+        "plate": 320
+      },
+      "aliases": [
+        "macaroni and cheese"
+      ]
+    },
+    {
+      "item_id": "spaghetti_bolognese",
+      "label": "spaghetti bolognese",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 350.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 350,
+        "bowl": 300
+      },
+      "aliases": [
+        "spaghetti with meat sauce"
+      ]
+    },
+    {
+      "item_id": "pasta_alfredo",
+      "label": "pasta alfredo",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 340.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 340,
+        "bowl": 300
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "carbonara",
+      "label": "carbonara",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 330.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 330,
+        "bowl": 290
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "ramen",
+      "label": "ramen",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 450.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 450,
+        "cup": 250
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pho",
+      "label": "pho",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 500.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "fried_rice",
+      "label": "fried rice",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 300,
+        "bowl": 280,
+        "cup": 180
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "risotto",
+      "label": "risotto",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 300,
+        "bowl": 280
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "paella",
+      "label": "paella",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 350.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 350
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "curry_chicken",
+      "label": "chicken curry",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 300,
+        "cup": 200
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "curry_beef",
+      "label": "beef curry",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 320.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 320,
+        "cup": 210
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "curry_vegetable",
+      "label": "vegetable curry",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 280.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 280,
+        "cup": 190
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chili_con_carne",
+      "label": "chili con carne",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 300,
+        "cup": 200
+      },
+      "aliases": [
+        "chili"
+      ]
+    },
+    {
+      "item_id": "beef_stew",
+      "label": "beef stew",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 320.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 320,
+        "cup": 220
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chicken_soup",
+      "label": "chicken soup",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 350.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 350,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tomato_soup",
+      "label": "tomato soup",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 300,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "salad_garden",
+      "label": "garden salad",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 180.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 180,
+        "large_bowl": 300,
+        "side": 120
+      },
+      "aliases": [
+        "salad"
+      ]
+    },
+    {
+      "item_id": "caesar_salad",
+      "label": "caesar salad",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 220.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 220,
+        "large_bowl": 350,
+        "side": 140
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "greek_salad",
+      "label": "greek salad",
+      "category": "mixed_meals",
+      "default_unit": "bowl",
+      "default_grams": 220.0,
+      "fractionable": false,
+      "common_units": {
+        "bowl": 220,
+        "large_bowl": 350
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sandwich_ham_cheese",
+      "label": "ham and cheese sandwich",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90
+      },
+      "aliases": [
+        "sandwich"
+      ]
+    },
+    {
+      "item_id": "club_sandwich",
+      "label": "club sandwich",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 250.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 250,
+        "half": 125
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "grilled_cheese",
+      "label": "grilled cheese sandwich",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "burger_cheeseburger",
+      "label": "cheeseburger",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 220.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 220,
+        "half": 110
+      },
+      "aliases": [
+        "burger"
+      ]
+    },
+    {
+      "item_id": "double_burger",
+      "label": "double burger",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 320.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 320,
+        "half": 160
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "hot_dog",
+      "label": "hot dog",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 150.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 150,
+        "half": 75
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "wrap_chicken",
+      "label": "chicken wrap",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 220.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 220,
+        "half": 110
+      },
+      "aliases": [
+        "wrap"
+      ]
+    },
+    {
+      "item_id": "burrito_beef",
+      "label": "beef burrito",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 250.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 250,
+        "half": 125
+      },
+      "aliases": [
+        "burrito"
+      ]
+    },
+    {
+      "item_id": "quesadilla_cheese",
+      "label": "cheese quesadilla",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 180.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 180,
+        "half": 90,
+        "slice": 45
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "taco_beef",
+      "label": "beef taco",
+      "category": "mixed_meals",
+      "default_unit": "piece",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 120,
+        "serving_2": 240
+      },
+      "aliases": [
+        "taco"
+      ]
+    },
+    {
+      "item_id": "sushi_roll",
+      "label": "sushi roll",
+      "category": "mixed_meals",
+      "default_unit": "roll",
+      "default_grams": 200.0,
+      "fractionable": true,
+      "common_units": {
+        "roll": 200,
+        "piece": 25
+      },
+      "aliases": [
+        "sushi"
+      ]
+    },
+    {
+      "item_id": "dumplings",
+      "label": "dumplings",
+      "category": "mixed_meals",
+      "default_unit": "piece",
+      "default_grams": 35.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 35,
+        "serving_6": 210
+      },
+      "aliases": [
+        "dumpling"
+      ]
+    },
+    {
+      "item_id": "spring_roll",
+      "label": "spring roll",
+      "category": "mixed_meals",
+      "default_unit": "piece",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "falafel_wrap",
+      "label": "falafel wrap",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 240.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 240,
+        "half": 120
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "shawarma",
+      "label": "shawarma wrap",
+      "category": "mixed_meals",
+      "default_unit": "whole",
+      "default_grams": 280.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 280,
+        "half": 140
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "fish_and_chips",
+      "label": "fish and chips",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 400.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 400
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "roast_dinner",
+      "label": "roast dinner",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 500.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 500
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mashed_potato_sausage",
+      "label": "bangers and mash",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 420.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 420
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "stir_fry_chicken",
+      "label": "chicken stir-fry",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 320.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 320,
+        "bowl": 280
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "stir_fry_tofu",
+      "label": "tofu stir-fry",
+      "category": "mixed_meals",
+      "default_unit": "plate",
+      "default_grams": 300.0,
+      "fractionable": false,
+      "common_units": {
+        "plate": 300,
+        "bowl": 260
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "potato_chips",
+      "label": "potato chips",
+      "category": "snacks_and_sweets",
+      "default_unit": "handful",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 25,
+        "small_bag": 30,
+        "large_bag": 45
+      },
+      "aliases": [
+        "chips"
+      ]
+    },
+    {
+      "item_id": "tortilla_chips",
+      "label": "tortilla chips",
+      "category": "snacks_and_sweets",
+      "default_unit": "handful",
+      "default_grams": 28.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 28,
+        "small_bag": 30,
+        "cup": 50
+      },
+      "aliases": [
+        "nacho chips"
+      ]
+    },
+    {
+      "item_id": "popcorn",
+      "label": "popcorn",
+      "category": "snacks_and_sweets",
+      "default_unit": "cup",
+      "default_grams": 8.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 8,
+        "bowl": 24,
+        "bag_small": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pretzel_snack",
+      "label": "pretzel snack",
+      "category": "snacks_and_sweets",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "bag_small": 40
+      },
+      "aliases": [
+        "pretzels"
+      ]
+    },
+    {
+      "item_id": "trail_mix",
+      "label": "trail mix",
+      "category": "snacks_and_sweets",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "cup": 120
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mixed_seeds",
+      "label": "mixed seeds",
+      "category": "snacks_and_sweets",
+      "default_unit": "tbsp",
+      "default_grams": 10.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 10,
+        "handful": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "sunflower_seeds",
+      "label": "sunflower seeds",
+      "category": "snacks_and_sweets",
+      "default_unit": "tbsp",
+      "default_grams": 9.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 9,
+        "handful": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pumpkin_seeds",
+      "label": "pumpkin seeds",
+      "category": "snacks_and_sweets",
+      "default_unit": "tbsp",
+      "default_grams": 10.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 10,
+        "handful": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chocolate_bar",
+      "label": "chocolate bar",
+      "category": "snacks_and_sweets",
+      "default_unit": "whole",
+      "default_grams": 45.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 45,
+        "piece": 10
+      },
+      "aliases": [
+        "chocolate"
+      ]
+    },
+    {
+      "item_id": "dark_chocolate",
+      "label": "dark chocolate",
+      "category": "snacks_and_sweets",
+      "default_unit": "serving",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 30,
+        "square": 10,
+        "bar": 100
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "milk_chocolate",
+      "label": "milk chocolate",
+      "category": "snacks_and_sweets",
+      "default_unit": "serving",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 30,
+        "square": 10,
+        "bar": 100
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "chocolate_chip_cookie",
+      "label": "chocolate chip cookie",
+      "category": "snacks_and_sweets",
+      "default_unit": "piece",
+      "default_grams": 16.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 16,
+        "serving_2": 32
+      },
+      "aliases": [
+        "cookie"
+      ]
+    },
+    {
+      "item_id": "oreo_cookie",
+      "label": "oreo cookie",
+      "category": "snacks_and_sweets",
+      "default_unit": "piece",
+      "default_grams": 11.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 11,
+        "serving_3": 33
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "brownie",
+      "label": "brownie",
+      "category": "snacks_and_sweets",
+      "default_unit": "piece",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cake_slice",
+      "label": "cake slice",
+      "category": "snacks_and_sweets",
+      "default_unit": "slice",
+      "default_grams": 100.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 100
+      },
+      "aliases": [
+        "cake"
+      ]
+    },
+    {
+      "item_id": "cheesecake_slice",
+      "label": "cheesecake slice",
+      "category": "snacks_and_sweets",
+      "default_unit": "slice",
+      "default_grams": 125.0,
+      "fractionable": false,
+      "common_units": {
+        "slice": 125
+      },
+      "aliases": [
+        "cheesecake"
+      ]
+    },
+    {
+      "item_id": "cupcake",
+      "label": "cupcake",
+      "category": "snacks_and_sweets",
+      "default_unit": "whole",
+      "default_grams": 80.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 80,
+        "half": 40
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "gummy_candy",
+      "label": "gummy candy",
+      "category": "snacks_and_sweets",
+      "default_unit": "handful",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "handful": 30,
+        "piece": 3
+      },
+      "aliases": [
+        "gummies"
+      ]
+    },
+    {
+      "item_id": "hard_candy",
+      "label": "hard candy",
+      "category": "snacks_and_sweets",
+      "default_unit": "piece",
+      "default_grams": 6.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 6
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "marshmallows",
+      "label": "marshmallows",
+      "category": "snacks_and_sweets",
+      "default_unit": "piece",
+      "default_grams": 7.0,
+      "fractionable": false,
+      "common_units": {
+        "piece": 7,
+        "serving_4": 28
+      },
+      "aliases": [
+        "marshmallow"
+      ]
+    },
+    {
+      "item_id": "ice_lolly",
+      "label": "ice lolly",
+      "category": "snacks_and_sweets",
+      "default_unit": "whole",
+      "default_grams": 70.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 70,
+        "half": 35
+      },
+      "aliases": [
+        "popsicle"
+      ]
+    },
+    {
+      "item_id": "sorbet",
+      "label": "sorbet",
+      "category": "snacks_and_sweets",
+      "default_unit": "scoop",
+      "default_grams": 65.0,
+      "fractionable": false,
+      "common_units": {
+        "scoop": 65,
+        "cup": 130
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "fruit_yogurt_pot",
+      "label": "fruit yogurt pot",
+      "category": "snacks_and_sweets",
+      "default_unit": "pot",
+      "default_grams": 150.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 150
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pudding_cup",
+      "label": "pudding cup",
+      "category": "snacks_and_sweets",
+      "default_unit": "pot",
+      "default_grams": 120.0,
+      "fractionable": false,
+      "common_units": {
+        "pot": 120
+      },
+      "aliases": [
+        "pudding"
+      ]
+    },
+    {
+      "item_id": "rice_pudding",
+      "label": "rice pudding",
+      "category": "snacks_and_sweets",
+      "default_unit": "cup",
+      "default_grams": 200.0,
+      "fractionable": false,
+      "common_units": {
+        "cup": 200,
+        "pot": 150
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "granola_cluster",
+      "label": "granola cluster",
+      "category": "snacks_and_sweets",
+      "default_unit": "serving",
+      "default_grams": 30.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 30,
+        "handful": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cracker_snack",
+      "label": "cracker snack",
+      "category": "snacks_and_sweets",
+      "default_unit": "serving",
+      "default_grams": 25.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 25,
+        "piece": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "beef_jerky",
+      "label": "beef jerky",
+      "category": "snacks_and_sweets",
+      "default_unit": "serving",
+      "default_grams": 28.0,
+      "fractionable": false,
+      "common_units": {
+        "serving": 28,
+        "piece": 7
+      },
+      "aliases": [
+        "jerky"
+      ]
+    },
+    {
+      "item_id": "protein_cookie",
+      "label": "protein cookie",
+      "category": "snacks_and_sweets",
+      "default_unit": "whole",
+      "default_grams": 60.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 60,
+        "half": 30
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "ice_cream_cone",
+      "label": "ice cream cone",
+      "category": "snacks_and_sweets",
+      "default_unit": "whole",
+      "default_grams": 120.0,
+      "fractionable": true,
+      "common_units": {
+        "whole": 120,
+        "half": 60
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "olive_oil",
+      "label": "olive oil",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 14.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 14,
+        "tsp": 5,
+        "drizzle": 5
+      },
+      "aliases": [
+        "oil"
+      ]
+    },
+    {
+      "item_id": "vegetable_oil",
+      "label": "vegetable oil",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 14.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 14,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "butter",
+      "label": "butter",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 14.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 14,
+        "tsp": 5,
+        "pat": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "margarine",
+      "label": "margarine",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 14.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 14,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mayonnaise",
+      "label": "mayonnaise",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 14.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 14,
+        "tsp": 5
+      },
+      "aliases": [
+        "mayo"
+      ]
+    },
+    {
+      "item_id": "ketchup",
+      "label": "ketchup",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 17.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 17,
+        "tsp": 6,
+        "packet": 10
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "mustard",
+      "label": "mustard",
+      "category": "condiments_and_spreads",
+      "default_unit": "tsp",
+      "default_grams": 5.0,
+      "fractionable": false,
+      "common_units": {
+        "tsp": 5,
+        "tbsp": 15,
+        "packet": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "bbq_sauce",
+      "label": "barbecue sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 18.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 18,
+        "tsp": 6
+      },
+      "aliases": [
+        "bbq sauce"
+      ]
+    },
+    {
+      "item_id": "soy_sauce",
+      "label": "soy sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 16.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 16,
+        "tsp": 5,
+        "packet": 10
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "hot_sauce",
+      "label": "hot sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "tsp",
+      "default_grams": 5.0,
+      "fractionable": false,
+      "common_units": {
+        "tsp": 5,
+        "dash": 1
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "salsa",
+      "label": "salsa",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "guacamole",
+      "label": "guacamole",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "pesto",
+      "label": "pesto",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 16.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 16,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tomato_sauce",
+      "label": "tomato sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "cup": 240,
+        "ladle": 60
+      },
+      "aliases": [
+        "passata"
+      ]
+    },
+    {
+      "item_id": "gravy",
+      "label": "gravy",
+      "category": "condiments_and_spreads",
+      "default_unit": "ladle",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "ladle": 60,
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "salad_dressing",
+      "label": "salad dressing",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "tsp": 5
+      },
+      "aliases": [
+        "dressing"
+      ]
+    },
+    {
+      "item_id": "ranch_dressing",
+      "label": "ranch dressing",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "tsp": 5
+      },
+      "aliases": [
+        "ranch"
+      ]
+    },
+    {
+      "item_id": "vinaigrette",
+      "label": "vinaigrette",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "honey",
+      "label": "honey",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 21.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 21,
+        "tsp": 7
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "jam",
+      "label": "jam",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 20.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 20,
+        "tsp": 7
+      },
+      "aliases": [
+        "jelly",
+        "preserves"
+      ]
+    },
+    {
+      "item_id": "maple_syrup",
+      "label": "maple syrup",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 20.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 20,
+        "tsp": 7
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "nutella",
+      "label": "nutella",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 19.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 19,
+        "tsp": 6
+      },
+      "aliases": [
+        "chocolate spread"
+      ]
+    },
+    {
+      "item_id": "peanut_sauce",
+      "label": "peanut sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 16.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 16,
+        "cup": 240
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "tahini",
+      "label": "tahini",
+      "category": "condiments_and_spreads",
+      "default_unit": "tbsp",
+      "default_grams": 15.0,
+      "fractionable": false,
+      "common_units": {
+        "tbsp": 15,
+        "tsp": 5
+      },
+      "aliases": []
+    },
+    {
+      "item_id": "cream_sauce",
+      "label": "cream sauce",
+      "category": "condiments_and_spreads",
+      "default_unit": "ladle",
+      "default_grams": 60.0,
+      "fractionable": false,
+      "common_units": {
+        "ladle": 60,
+        "tbsp": 15,
+        "cup": 240
+      },
+      "aliases": []
+    }
+  ]
+}

@@ -47,10 +47,13 @@ Your tasks:
 A) SELECT the single best candidate that matches the extracted item. Use the \
    description to validate: e.g. "peach (raw fruit)" should NOT match \
    "PEACH PIE". Prefer generic/plain items when description is "unspecified".
-B) ESTIMATE the total amount in grams:
-   - Use the spoken quantity if given (e.g. "3" eggs × 60 g each = 180 g).
-   - Use portion defaults / user calibration if no quantity is spoken.
-   - For fractional amounts like "half a pizza", compute accordingly.
+B) DETERMINE the total amount in grams:
+   - A pre-resolved "portion_hint" is provided with fields "grams", "unit", \
+   and "source". It already accounts for the spoken quantity and user \
+   preferences. Use "portion_hint.grams" as the final amount_grams.
+   - EXCEPTION: if "quantity_raw" contains an explicit gram/ml weight \
+   (e.g. "150g", "200ml"), override portion_hint and use that exact value.
+   - Do not second-guess portion_hint unless you detect a clear error.
 C) CALCULATE the final macros by scaling the per-100g values to the \
    estimated grams.
 
@@ -108,10 +111,18 @@ def rerank_single_item(
     quantity_raw = extracted_item.get("quantity_raw")
     description = extracted_item.get("description", "unspecified")
 
-    # look up portion defaults + user calibrations
-    defaults = _load_portion_defaults()
-    portion_hint = defaults.get(item_name.lower(), {})
-    user_pref = get_user_preference(uid, item_name) if uid else None
+    # Portion hint pre-resolved by Step 1.5 (preferred); fall back to old lookup
+    portion_hint = extracted_item.get("portion_hint")
+    if not portion_hint:
+        defaults = _load_portion_defaults()
+        flat_hint = defaults.get(item_name.lower(), {})
+        user_pref = get_user_preference(uid, item_name) if uid else None
+        if user_pref or flat_hint:
+            portion_hint = {
+                "grams": user_pref["preferred_grams"] if user_pref else flat_hint.get("default_grams", 100),
+                "unit": "g",
+                "source": "user_pref" if user_pref else "portion_defaults",
+            }
 
     # build the user message for the LLM
     user_msg = json.dumps({
@@ -132,8 +143,7 @@ def rerank_single_item(
             }
             for c in candidates[:20]  # max 20 candidates
         ],
-        "portion_defaults": portion_hint if portion_hint else None,
-        "user_calibration": user_pref,
+        "portion_hint": portion_hint,
     }, indent=2)
 
     response = llm_client.get_client().chat.completions.create(
@@ -248,15 +258,24 @@ def rerank_single_item_heuristic(
     score = best.get("adjusted_score", 0)
 
     # ── 2. Portion bestimmen ──────────────────────────────────────────────────
-    portion_hint = defaults.get(item_name.lower(), {})
-    default_grams = portion_hint.get("default_grams", 100)
-    unit = portion_hint.get("unit", "g")
+    # Priority: explicit grams → portion_hint (from Step 1.5) → flat defaults
+    portion_hint_resolved = extracted_item.get("portion_hint", {})
+    quantity_parsed = extracted_item.get("quantity_parsed")
 
     if _is_absolute_grams(quantity_raw):
         import re
         amount_grams = float(re.match(r"^(\d+(?:\.\d+)?)", str(quantity_raw).strip()).group(1))
+        unit = "g"
+    elif portion_hint_resolved.get("grams"):
+        amount_grams = float(portion_hint_resolved["grams"])
+        unit = portion_hint_resolved.get("unit", "g")
     else:
-        multiplier = _parse_quantity(quantity_raw)
+        # Fallback: flat defaults + quantity multiplier
+        flat_hint = defaults.get(item_name.lower(), {})
+        default_grams = flat_hint.get("default_grams", 100)
+        unit = flat_hint.get("unit", "g")
+        multiplier = (float(quantity_parsed) if quantity_parsed is not None
+                      else _parse_quantity(quantity_raw))
         amount_grams = default_grams * (multiplier if multiplier is not None else 1.0)
 
     # ── 3. Nährwerte berechnen ────────────────────────────────────────────────
