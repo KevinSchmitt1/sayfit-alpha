@@ -64,6 +64,12 @@ _embed_model = None                 # SentenceTransformer singleton
 _food_index: dict | None = None     # food_ontology_300 lookup index (lazy)
 _portion_defaults_ont: dict | None = None  # portion_defaults.json cache
 
+# ── food_ontology_300 vector index (built once alongside _food_index) ────────
+_food_ont_labels: list[str] = []        # canonical label for each entry
+_food_ont_entries: list[dict] = []      # corresponding food dicts
+_food_ont_vecs: np.ndarray | None = None  # (n, dim), normalised
+_ONTOLOGY_SIM_THRESHOLD = 0.72          # minimum cosine sim to accept a fuzzy hit
+
 # Import unit alias map from food_portion_lookup (used for unit normalisation)
 try:
     from .food_portion_lookup import UNIT_ALIASES as _UNIT_ALIASES
@@ -215,8 +221,8 @@ def _build_l2_embed_index() -> None:
 
 
 def _load_food_index() -> dict:
-    """Lazy-load and build the food_ontology_300 lookup index."""
-    global _food_index
+    """Lazy-load and build the food_ontology_300 lookup index + vector index."""
+    global _food_index, _food_ont_labels, _food_ont_entries, _food_ont_vecs
     if _food_index is not None:
         return _food_index
     ont_path = config.FOOD_ONTOLOGY_FILE
@@ -226,14 +232,53 @@ def _load_food_index() -> dict:
     with open(ont_path) as f:
         ontology = json.load(f)
     index: dict = {}
+    # For the vector index use the canonical label of each food entry once
+    labels: list[str] = []
+    entries: list[dict] = []
     for food in ontology.get("foods", []):
         fid = food.get("food_id") or food.get("item_id", "")
-        keys = {fid, food.get("label", ""), *food.get("aliases", [])}
+        canonical = food.get("label", "") or fid
+        keys = {fid, canonical, *food.get("aliases", [])}
         for k in keys:
             if k:
                 index[k.strip().lower().replace("-", " ")] = food
+        if canonical:
+            labels.append(canonical.strip().lower().replace("-", " "))
+            entries.append(food)
     _food_index = index
+    # Build normalised vector index over canonical labels
+    if labels:
+        model = _load_embed_model()
+        vecs = model.encode(labels, normalize_embeddings=True, show_progress_bar=False)
+        _food_ont_labels = labels
+        _food_ont_entries = entries
+        _food_ont_vecs = np.array(vecs, dtype="float32")
+        _log(f"   📐 [Step 1.5] Food ontology vector index built – {len(labels)} entries")
     return _food_index
+
+
+def _fuzzy_food_entry(key: str) -> dict | None:
+    """Return the best-matching food_ontology_300 entry for *key*.
+
+    First tries exact dict lookup, then falls back to cosine similarity
+    over the canonical-label vector index.  Returns None when the best
+    similarity is below _ONTOLOGY_SIM_THRESHOLD.
+    """
+    index = _load_food_index()  # also builds vector index as side-effect
+    if key in index:
+        return index[key]
+    if _food_ont_vecs is None or len(_food_ont_labels) == 0:
+        return None
+    model = _load_embed_model()
+    q_vec = model.encode([key], normalize_embeddings=True,
+                         show_progress_bar=False)[0].astype("float32")
+    sims = _food_ont_vecs @ q_vec
+    best_idx = int(np.argmax(sims))
+    best_sim = float(sims[best_idx])
+    _log(f"      [portion fuzzy] '{key}' → '{_food_ont_labels[best_idx]}' (sim={best_sim:.3f})")
+    if best_sim >= _ONTOLOGY_SIM_THRESHOLD:
+        return _food_ont_entries[best_idx]
+    return None
 
 
 def _load_user_prefs_for_uid(uid: str) -> dict:
@@ -297,17 +342,30 @@ def resolve_portion_hint(
     # ── Tier 1: User preferences ──────────────────────────────────────────
     if uid:
         user_prefs = _load_user_prefs_for_uid(uid)
-        if key in user_prefs:
-            pref_grams = float(user_prefs[key].get("preferred_grams", 0))
+        # Exact lookup first; fuzzy fallback via cosine sim over pref keys
+        pref_match = user_prefs.get(key)
+        if pref_match is None and user_prefs:
+            # embed the query and all stored pref keys, pick best match
+            pref_keys = list(user_prefs.keys())
+            model = _load_embed_model()
+            vecs = model.encode([key] + pref_keys, normalize_embeddings=True,
+                                show_progress_bar=False).astype("float32")
+            q_vec, pref_vecs = vecs[0], vecs[1:]
+            sims = pref_vecs @ q_vec
+            best_idx = int(np.argmax(sims))
+            if float(sims[best_idx]) >= _ONTOLOGY_SIM_THRESHOLD:
+                pref_match = user_prefs[pref_keys[best_idx]]
+        if pref_match is not None:
+            pref_grams = float(pref_match.get("preferred_grams", 0))
             if pref_grams > 0:
                 return {
                     "grams": round(pref_grams * multiplier, 1),
-                    "unit": user_prefs[key].get("preferred_unit", "g"),
+                    "unit": pref_match.get("preferred_unit", "g"),
                     "source": "user_pref",
                 }
 
-    # ── Tier 2: food_ontology_300 ──────────────────────────────────────────
-    food_entry = _load_food_index().get(key)
+    # ── Tier 2: food_ontology_300 (exact + fuzzy vector search) ───────────
+    food_entry = _fuzzy_food_entry(key)
     if food_entry:
         common_units = food_entry.get("common_units", {})
         if norm_unit and norm_unit in common_units:

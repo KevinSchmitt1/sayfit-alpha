@@ -465,7 +465,7 @@ Examples:
     parser.add_argument("--duration", type=int, default=None, help="Recording duration in seconds (with --record)")
     parser.add_argument("--input", type=str, help="Path to voice-recorder JSON")
     parser.add_argument("--text", type=str, help="Direct text input (what you ate)")
-    parser.add_argument("--uid", type=str, default="default_user", help="User ID")
+    parser.add_argument("--uid", type=str, default=None, help="User ID (prompted if not provided)")
     parser.add_argument("--test-folder", type=str, help="Run all test JSONs in a folder")
     parser.add_argument("--no-llm", action="store_true",
                         help="Step 3 ohne LLM – regelbasierter Fallback (kein API-Key nötig)")
@@ -482,6 +482,10 @@ Examples:
     # activate developer mode before any module import that might print
     if args.devmode:
         config.DEV_MODE = True
+
+    # --record/--wav will prompt interactively; all other modes fall back silently
+    if args.uid is None and not args.record and not args.wav:
+        args.uid = "default_user"
 
     # configure LLM backend (must happen before any pipeline step)
     if not args.no_llm:
@@ -513,6 +517,9 @@ Examples:
 
     if args.record or args.wav:
         # ── Step 0: Voice input ──────────────────────────────────────
+        if args.uid is None:
+            args.uid = input("  Your User ID [default_user]: ").strip() or "default_user"
+            print()
         if args.record:
             # Run recording+transcription in an isolated subprocess so that
             # PortAudio (sounddevice) and Whisper/PyTorch are fully torn down

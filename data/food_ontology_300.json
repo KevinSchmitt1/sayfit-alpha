@@ -2795,12 +2795,12 @@
       "label": "pepperoni pizza",
       "category": "mixed_meals",
       "default_unit": "whole",
-      "default_grams": 840.0,
+      "default_grams": 400.0,
       "fractionable": true,
       "common_units": {
-        "whole": 840,
-        "slice": 105,
-        "half": 420
+        "whole": 400,
+        "slice": 100,
+        "half": 200
       },
       "aliases": [
         "pizza pepperoni"
@@ -2811,12 +2811,12 @@
       "label": "margherita pizza",
       "category": "mixed_meals",
       "default_unit": "whole",
-      "default_grams": 800.0,
+      "default_grams": 400.0,
       "fractionable": true,
       "common_units": {
-        "whole": 800,
+        "whole": 400,
         "slice": 100,
-        "half": 400
+        "half": 200
       },
       "aliases": []
     },
@@ -2825,12 +2825,12 @@
       "label": "cheese pizza",
       "category": "mixed_meals",
       "default_unit": "whole",
-      "default_grams": 840.0,
+      "default_grams": 400.0,
       "fractionable": true,
       "common_units": {
-        "whole": 840,
-        "slice": 105,
-        "half": 420
+        "whole": 400,
+        "slice": 100,
+        "half": 200
       },
       "aliases": []
     },
@@ -2839,12 +2839,12 @@
       "label": "veggie pizza",
       "category": "mixed_meals",
       "default_unit": "whole",
-      "default_grams": 780.0,
+      "default_grams": 400.0,
       "fractionable": true,
       "common_units": {
-        "whole": 780,
-        "slice": 97.5,
-        "half": 390
+        "whole": 400,
+        "slice": 100,
+        "half": 200
       },
       "aliases": [
         "vegetable pizza"
@@ -2855,12 +2855,12 @@
       "label": "hawaiian pizza",
       "category": "mixed_meals",
       "default_unit": "whole",
-      "default_grams": 820.0,
+      "default_grams": 400.0,
       "fractionable": true,
       "common_units": {
-        "whole": 820,
-        "slice": 102.5,
-        "half": 410
+        "whole": 400,
+        "slice": 100,
+        "half": 200
       },
       "aliases": []
     },
