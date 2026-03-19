@@ -84,6 +84,11 @@ WHISPER_TARGET_DB = float(os.getenv("WHISPER_TARGET_DB", "-20"))
 # (used when Step 0 runs as an isolated subprocess).
 DEV_MODE: bool = os.getenv("SAYFIT_DEVMODE", "0") == "1"
 
+# ── Default user ─────────────────────────────────────────────────────────────
+# Used as the pre-filled suggestion when the program prompts for a user ID.
+# Override via SAYFIT_DEFAULT_USER env var or the --default-uid CLI flag.
+DEFAULT_USER_ID: str = os.getenv("SAYFIT_DEFAULT_USER", "default_user")
+
 # ── Portion / ontology data files ──────────────────────────────────────────
 PORTION_DEFAULTS_FILE = DATA_DIR / "portion_defaults.json"
 FOOD_ONTOLOGY_FILE    = DATA_DIR / "food_ontology_300.json"

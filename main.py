@@ -37,6 +37,27 @@ from step3_reranker.reranker import rerank_all
 from step3_reranker.calibration import save_user_correction
 from step4_output.formatter import format_output
 
+# ── Last-used user persistence ────────────────────────────────────────────────
+_LAST_USER_FILE = config.ROOT_DIR / "data" / "calibrations" / "last_user.txt"
+
+
+def _get_last_user() -> str:
+    """Return the uid that was used most recently, falling back to DEFAULT_USER_ID."""
+    try:
+        uid = _LAST_USER_FILE.read_text().strip()
+        return uid if uid else config.DEFAULT_USER_ID
+    except OSError:
+        return config.DEFAULT_USER_ID
+
+
+def _set_last_user(uid: str) -> None:
+    """Persist uid so the next session picks it up as the default."""
+    try:
+        _LAST_USER_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _LAST_USER_FILE.write_text(uid)
+    except OSError:
+        pass
+
 
 # ── Progress spinner (used in normal / non-devmode) ──────────────────────────
 
@@ -165,7 +186,12 @@ def run_pipeline(
         print(f"   💾 {ext_path.relative_to(config.ROOT_DIR)}")
 
     # ── Step 1.5: Ontology Filter ─────────────────────────────────────────
-    from step1_5_ontology_filter.ontology_filter import apply_ontology_filter
+    from step1_5_ontology_filter.ontology_filter import (
+        apply_ontology_filter, _build_l2_embed_index, _load_food_index,
+    )
+    with Spinner("Loading food model"):
+        _build_l2_embed_index()
+        _load_food_index()
     with Spinner("Classifying food categories"):
         extraction = apply_ontology_filter(extraction)
 
@@ -413,36 +439,442 @@ def ask_user_corrections(
     return reranked
 
 
-def interactive_mode(use_llm: bool = True):
-    """Interactive terminal loop for logging meals."""
-    print("\n" + "=" * 60)
-    print("  🍽️  SayFit Alpha – Interactive Mode")
-    print("=" * 60)
-    print("  Type what you ate (or 'quit' to exit).")
-    print("  Example: \"i ate a pepperoni pizza and 3 eggs\"\n")
+def run_onboarding_survey(uid: str) -> None:
+    """
+    One-time personal profile setup.
 
-    uid = input("  Your User ID [default_user]: ").strip() or "default_user"
+    Asks the user about bodyweight, age, daily activity level (PAL) and
+    structured training, then calculates their Total Daily Energy Expenditure
+    and macro targets and persists the result to the database.
+
+    Formulas
+    --------
+    RMR (kcal)       = (0.047 × weight_kg + 1.009 + 0.001452 × age + 3.2) × 239
+    Activity (kcal)  = (PAL − 1) × RMR
+    Training (kcal)  = (MET − 1) × weight_kg × daily_training_hours
+    TDEE             = RMR + Activity + Training
+
+    Macros
+    ------
+    Protein : 2.0 g × weight_kg  →  × 4 kcal/g
+    Fat     : 0.9 g × weight_kg  →  × 9 kcal/g
+    Carbs   : (TDEE − protein_kcal − fat_kcal) ÷ 4 kcal/g
+    """
+    print("\n" + "=" * 60)
+    print("  👤  Personal Profile Setup")
+    print("=" * 60)
+    print("  Answer a few questions to set your daily calorie and")
+    print("  macro targets.  This runs once per user ID.\n")
+
+    # ── Weight ────────────────────────────────────────────────────────────
+    while True:
+        try:
+            weight = float(input("  Your weight (kg): ").strip())
+            if 20.0 < weight < 350.0:
+                break
+            print("  ❌ Please enter a realistic weight (20–350 kg).")
+        except ValueError:
+            print("  ❌ Please enter a number (e.g. 75 or 82.5).")
+
+    # ── Sex ───────────────────────────────────────────────────────────────
+    while True:
+        sex = input("  Your sex (m/f): ").strip().lower()
+        if sex in ("m", "male", "f", "female"):
+            is_male = sex in ("m", "male")
+            break
+        print("  ❌ Please enter m or f.")
+
+    # ── Age ───────────────────────────────────────────────────────────────
+    while True:
+        try:
+            age = int(input("  Your age (years): ").strip())
+            if 10 <= age <= 120:
+                break
+            print("  ❌ Please enter a realistic age.")
+        except ValueError:
+            print("  ❌ Please enter a whole number.")
+
+    # ── Daily activity level (PAL) ────────────────────────────────────────
+    print("""
+  How active is your typical day?
+  [1] Mostly sedentary – bed-bound or very limited mobility          (PAL 1.25)
+  [2] Office work, mostly sitting, little or no exercise             (PAL 1.45)
+  [3] Student / office worker, occasional walking or standing        (PAL 1.65)
+  [4] Service work – sales, cooking, on your feet most of the day    (PAL 1.85)
+  [5] Physical labour – construction, farming, or competitive sport   (PAL 2.20)""")
+
+    _pal_map = {1: 1.25, 2: 1.45, 3: 1.65, 4: 1.85, 5: 2.20}
+    while True:
+        try:
+            choice = int(input("\n  Activity level [1–5]: ").strip())
+            if choice in _pal_map:
+                pal = _pal_map[choice]
+                break
+            print("  ❌ Please enter a number from 1 to 5.")
+        except ValueError:
+            print("  ❌ Please enter a number.")
+
+    # ── Structured training ───────────────────────────────────────────────
+    trains = input("\n  Do you exercise or train regularly? [y/n]: ").strip().lower() in ("y", "yes")
+    training_met = 0.0
+    training_hours_per_week = 0.0
+
+    if trains:
+        print("""
+  Training intensity:
+  [1] Light    – gentle walking, yoga, stretching           (~2 METs)
+  [2] Moderate – brisk walking, cycling, light gym work     (~4.5 METs)
+  [3] Vigorous – running, HIIT, heavy weightlifting         (~8 METs)""")
+
+        _met_map = {1: 2.0, 2: 4.5, 3: 8.0}
+        while True:
+            try:
+                met_choice = int(input("\n  Training intensity [1–3]: ").strip())
+                if met_choice in _met_map:
+                    training_met = _met_map[met_choice]
+                    break
+                print("  ❌ Please enter 1, 2 or 3.")
+            except ValueError:
+                print("  ❌ Please enter a number.")
+
+        while True:
+            try:
+                sessions = int(input("  Sessions per week: ").strip())
+                minutes  = int(input("  Minutes per session: ").strip())
+                if sessions >= 0 and minutes >= 0:
+                    training_hours_per_week = sessions * minutes / 60.0
+                    break
+                print("  ❌ Please enter non-negative numbers.")
+            except ValueError:
+                print("  ❌ Please enter whole numbers.")
+
+    # ── Energy calculations ───────────────────────────────────────────────
+    # Resting Metabolic Rate (Müller formula; MJ/day × 239 → kcal/day)
+    # Male:   0.047 × kg + 1.009 + 0.001452 × age + 3.2
+    # Female: 0.047 × kg         + 0.001452 × age + 3.2
+    if is_male:
+        rmr_mj = 0.047 * weight + 1.009 + 0.001452 * age + 3.2
+    else:
+        rmr_mj = 0.047 * weight + 0.001452 * age + 3.2
+    rmr_kcal = rmr_mj * 239.0
+
+    # Lifestyle activity above resting
+    activity_kcal = (pal - 1.0) * rmr_kcal
+
+    # Net training energy (MET − 1 avoids double-counting the RMR baseline)
+    daily_training_hours = training_hours_per_week / 7.0
+    net_training_kcal = max(0.0, (training_met - 1.0) * weight * daily_training_hours)
+
+    kcal_daily = round(rmr_kcal + activity_kcal + net_training_kcal, 0)
+
+    # ── Macro targets ─────────────────────────────────────────────────────
+    protein_g    = round(2.0 * weight, 1)
+    fat_g        = round(0.9 * weight, 1)
+    protein_kcal = protein_g * 4.0
+    fat_kcal     = fat_g * 9.0
+    carbs_g      = round(max(0.0, kcal_daily - protein_kcal - fat_kcal) / 4.0, 1)
+
+    # ── Persist ───────────────────────────────────────────────────────────
+    get_db().save_user_profile(
+        uid=uid,
+        weight_kg=weight,
+        age_years=age,
+        pal=pal,
+        training_met=training_met,
+        training_hours_per_week=training_hours_per_week,
+        kcal_daily=kcal_daily,
+        protein_daily=protein_g,
+        fat_daily=fat_g,
+        carbs_daily=carbs_g,
+    )
+
+    breakdown = f"RMR {rmr_kcal:.0f}  +  activity {activity_kcal:.0f}"
+    if net_training_kcal > 0:
+        breakdown += f"  +  training {net_training_kcal:.0f}"
+
+    print(f"\n  ✅ Profile saved for '{uid}'")
+    print("\n  📊 Your daily targets:")
+    print(f"     Calories : {kcal_daily:.0f} kcal  ({breakdown})")
+    print(f"     Protein  : {protein_g:.1f} g   (2 g × {weight:.0f} kg)")
+    print(f"     Fat      : {fat_g:.1f} g   (0.9 g × {weight:.0f} kg)")
+    print(f"     Carbs    : {carbs_g:.1f} g   (remaining calories ÷ 4)")
+    print()
+
+
+def _check_and_run_onboarding(uid: str, force: bool = False) -> None:
+    """Run the profile survey for new users, or when force=True (update case)."""
+    if force or get_db().get_user_profile(uid) is None:
+        run_onboarding_survey(uid)
+
+
+# ── Menu width ──────────────────────────────────────────────────────────────
+_W = 60
+
+
+def _progress_bar(consumed: float, target: float, width: int = 22) -> str:
+    """ASCII progress bar. █ = normal fill, ▓ = over target, ░ = empty."""
+    if target <= 0:
+        return "░" * width
+    frac = min(consumed / target, 1.0)
+    filled = int(frac * width)
+    char = "▓" if consumed > target else "█"
+    return char * filled + "░" * (width - filled)
+
+
+def _print_day_overview(uid: str, meal_date: str) -> None:
+    """Macro progress bars + meal list for the day."""
+    totals  = get_db().get_daily_totals(uid, meal_date)
+    profile = get_db().get_user_profile(uid)
+    meals   = get_db().get_meals_for_day(uid, meal_date)
+
+    print("\n" + "=" * _W)
+    print(f"  📊  Today's Overview – {meal_date}  (@{uid})")
+    print("=" * _W)
+
+    if profile:
+        rows = [
+            ("Calories", totals["calories"], profile["kcal_daily"],    "kcal"),
+            ("Protein",  totals["protein"],  profile["protein_daily"], "g"),
+            ("Fat",      totals["fat"],       profile["fat_daily"],     "g"),
+            ("Carbs",    totals["carbs"],     profile["carbs_daily"],   "g"),
+        ]
+        for label, consumed, target, unit in rows:
+            bar = _progress_bar(consumed, target)
+            rem = target - consumed
+            tag = "over" if rem < 0 else "left"
+            pct = int(consumed / target * 100) if target > 0 else 0
+            print(f"  {label:<9}  {bar}  {consumed:6.0f} / {target:.0f} {unit}  ({abs(rem):.0f} {tag}, {pct}%)")
+    else:
+        print(f"  Calories : {totals['calories']:.1f} kcal")
+        print(f"  Protein  : {totals['protein']:.1f} g")
+        print(f"  Fat      : {totals['fat']:.1f} g")
+        print(f"  Carbs    : {totals['carbs']:.1f} g")
+        print("  (complete your profile to see targets)")
+
+    print()
+    if meals:
+        print(f"  Meals today ({len(meals)}):")
+        for i, meal in enumerate(meals, 1):
+            names = ", ".join(it["item_name"] for it in meal.get("items", [])[:3])
+            if len(meal.get("items", [])) > 3:
+                names += " …"
+            print(f"  [{i}] {meal['logged_at'][11:16]}  {names:<33}  {meal['total_calories']:.0f} kcal")
+    else:
+        print("  No meals logged today yet.")
+    print("=" * _W)
+
+
+def _edit_meal_of_day(uid: str, meal_date: str) -> None:
+    """Remove items or whole meals from today's log."""
+    meals = get_db().get_meals_for_day(uid, meal_date)
+    if not meals:
+        print("\n  No meals logged today.")
+        return
+
+    print("\n" + "=" * _W)
+    print(f"  ✏️   Edit a meal – {meal_date}")
+    print("=" * _W)
+    for i, meal in enumerate(meals, 1):
+        names = ", ".join(it["item_name"] for it in meal.get("items", [])[:3])
+        print(f"  [{i}] {meal['logged_at'][11:16]}  {names}  ({meal['total_calories']:.0f} kcal)")
     print()
 
     while True:
-        text = input("  🎤 What did you eat? > ").strip()
-        if not text or text.lower() in ("quit", "exit", "q"):
-            print("\n  👋 Goodbye! Stay fit!")
+        raw = input("  Select meal [1–N] or Enter to cancel: ").strip()
+        if not raw:
+            return
+        try:
+            idx = int(raw) - 1
+            if 0 <= idx < len(meals):
+                break
+            print(f"  ❌ Choose 1–{len(meals)}.")
+        except ValueError:
+            print("  ❌ Enter a number.")
+
+    meal  = meals[idx]
+    items = meal.get("items", [])
+
+    def _show():
+        print(f"\n  Meal  {meal['logged_at'][11:16]}  —  {meal['total_calories']:.0f} kcal total")
+        for i, it in enumerate(items, 1):
+            print(f"   [{i}] {it['item_name']:<25}  {it['amount_grams']:.0f}g  {it['calories']:.0f} kcal")
+        print()
+        print("  d<N> remove item  |  dm delete whole meal  |  <N> edit grams  |  Enter → back")
+
+    _show()
+
+    while True:
+        cmd = input("\n  > ").strip().lower()
+        if not cmd:
             break
 
-        date_time = datetime.now().isoformat()
-        reranked = run_pipeline(text, date_time=date_time, uid=uid, use_llm=use_llm)
+        if cmd == "dm":
+            if input("  ❗ Delete this entire meal? [y/N]: ").strip().lower() in ("y", "yes"):
+                get_db().delete_meal(meal["meal_id"])
+                print("  🗑️  Meal deleted.")
+            break
 
-        if reranked.get("results"):
-            reranked = ask_user_corrections(reranked, uid=uid, use_llm=use_llm)
+        if cmd.startswith("d"):
+            try:
+                i = int(cmd[1:]) - 1
+                if 0 <= i < len(items):
+                    it = items.pop(i)
+                    get_db().delete_meal_item(it["item_id"], meal["meal_id"])
+                    print(f"  🗑️  Removed: {it['item_name']}")
+                    if items:
+                        _show()
+                    else:
+                        print("  (all items removed — meal totals reset to 0)")
+                    continue
+                print(f"  ❌ Choose 1–{len(items)}.")
+            except ValueError:
+                print("  ❌ Use d1, d2 … to remove an item.")
+            continue
 
-            # ── Step 5: Database ─────────────────────────────────────────
-            if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
-            meal_date = date_time[:10]
-            get_db().save_pipeline_result(reranked, uid=uid, input_text=text, meal_date=meal_date)
-            get_db().print_daily_summary(uid, meal_date)
+        try:
+            i = int(cmd) - 1
+            if i < 0 or i >= len(items):
+                print(f"  ❌ Choose 1–{len(items)}.")
+                continue
+            it = items[i]
+            raw_g = input(f"  New grams for '{it['item_name']}' (now {it['amount_grams']:.0f}g): ").strip()
+            new_grams = float(raw_g)
+            get_db().update_meal_item_grams(it["item_id"], meal["meal_id"], new_grams)
+            scale = new_grams / (it["amount_grams"] or 100.0)
+            it["calories"]     = round(it["calories"]     * scale, 1)
+            it["amount_grams"] = new_grams
+            print(f"  ✅ Updated to {new_grams:.0f}g  ({it['calories']:.0f} kcal)")
+            _show()
+        except ValueError:
+            print("  ❌ Invalid input.")
 
-        print("\n" + "-" * 60 + "\n")
+
+def _run_voice_record(uid: str, duration: int | None = None) -> dict | None:
+    """
+    Run Step 0 (recording + Whisper) in an isolated subprocess to avoid the
+    PortAudio/FAISS/OpenMP semaphore conflict on macOS.  Returns the voice_data
+    dict on success, or None on failure.
+    """
+    import subprocess
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as tf:
+        tmp_path = Path(tf.name)
+
+    cmd = [
+        sys.executable, "-m", "step0_voice_input.run",
+        "--uid", uid,
+        "--output", str(tmp_path),
+        "--duration", str(duration or config.WHISPER_RECORD_SECONDS),
+    ]
+    env = {**__import__("os").environ, "SAYFIT_DEVMODE": "1"} if config.DEV_MODE else None
+
+    ret = subprocess.run(cmd, cwd=str(config.ROOT_DIR), env=env)
+    if ret.returncode != 0:
+        print("  ❌ Recording failed.")
+        tmp_path.unlink(missing_ok=True)
+        return None
+
+    with open(tmp_path) as f:
+        voice_data = json.load(f)
+    tmp_path.unlink(missing_ok=True)
+
+    # persist intermediate output
+    voice_path = config.OUTPUTS_DIR / "step0_voice_output.json"
+    with open(voice_path, "w") as f:
+        json.dump(voice_data, f, indent=2)
+    if config.DEV_MODE:
+        print(f"   💾 Voice output saved: {voice_path}")
+
+    return voice_data
+
+
+def run_main_menu(uid: str, use_llm: bool = True, duration: int | None = None) -> None:
+    """Full interactive main-menu loop. Returns when the user chooses Exit."""
+    _check_and_run_onboarding(uid)
+    _set_last_user(uid)
+
+    while True:
+        meal_date = datetime.now().strftime("%Y-%m-%d")
+        today_str = datetime.now().strftime("%a %d %b %Y")
+        totals    = get_db().get_daily_totals(uid, meal_date)
+
+        print("\n" + "=" * _W)
+        print(f"  🍽️   SayFit  ·  {today_str}  ·  @{uid}")
+        print("=" * _W)
+        print(f"  Today so far:  {totals['calories']:.0f} kcal  │"
+              f"  P {totals['protein']:.0f}g  F {totals['fat']:.0f}g  C {totals['carbs']:.0f}g")
+        print("─" * _W)
+        print("  [Enter]         Record voice 🎙️")
+        print("  [1]             Type meal manually ⌨️")
+        print("  [2]             Today's overview")
+        print("  [3]             Edit a meal today")
+        print("  [4]             Update my profile")
+        print("  [5]             Change user")
+        print("  [6]             Exit")
+        print("─" * _W)
+
+        choice = input("  > ").strip()
+
+        # ── Voice record ───────────────────────────────────────────────────
+        if choice == "":
+            secs = duration or config.WHISPER_RECORD_SECONDS
+            print(f"\n  🎙️  Recording for {secs}s … (speak now)")
+            voice_data = _run_voice_record(uid, duration)
+            if voice_data and voice_data.get("text"):
+                text      = voice_data["text"]
+                date_time = voice_data.get("date_time", datetime.now().isoformat())
+                print(f"  📝 Transcribed: \"{text}\"")
+                reranked = run_pipeline(text, date_time=date_time, uid=uid, use_llm=use_llm)
+                if reranked.get("results"):
+                    reranked = ask_user_corrections(reranked, uid=uid, use_llm=use_llm)
+                    if config.DEV_MODE:
+                        print("\n💾 [Step 5] Saving to database …")
+                    get_db().save_pipeline_result(reranked, uid=uid, input_text=text, meal_date=meal_date)
+                    get_db().print_daily_summary(uid, meal_date)
+
+        # ── Type meal manually ─────────────────────────────────────────────
+        elif choice == "1":
+            text = input("\n  ⌨️  What did you eat? > ").strip()
+            if not text:
+                continue
+            date_time = datetime.now().isoformat()
+            reranked  = run_pipeline(text, date_time=date_time, uid=uid, use_llm=use_llm)
+            if reranked.get("results"):
+                reranked = ask_user_corrections(reranked, uid=uid, use_llm=use_llm)
+                if config.DEV_MODE:
+                    print("\n💾 [Step 5] Saving to database …")
+                get_db().save_pipeline_result(reranked, uid=uid, input_text=text, meal_date=meal_date)
+                get_db().print_daily_summary(uid, meal_date)
+
+        # ── Overview ──────────────────────────────────────────────────────
+        elif choice == "2":
+            _print_day_overview(uid, meal_date)
+
+        # ── Edit meal ─────────────────────────────────────────────────────
+        elif choice == "3":
+            _edit_meal_of_day(uid, meal_date)
+
+        # ── Update profile ────────────────────────────────────────────────
+        elif choice == "4":
+            run_onboarding_survey(uid)
+
+        # ── Change user ───────────────────────────────────────────────────
+        elif choice == "5":
+            new_uid = input("  New user ID: ").strip()
+            if new_uid:
+                uid = new_uid
+                _check_and_run_onboarding(uid)
+                _set_last_user(uid)
+                print(f"  ✅ Switched to @{uid}")
+
+        # ── Exit ──────────────────────────────────────────────────────────
+        elif choice == "6":
+            print("\n  👋 Goodbye! Stay fit!\n")
+            break
+
+        else:
+            print("  ❌ Invalid choice.")
 
 
 def main():
@@ -466,6 +898,10 @@ Examples:
     parser.add_argument("--input", type=str, help="Path to voice-recorder JSON")
     parser.add_argument("--text", type=str, help="Direct text input (what you ate)")
     parser.add_argument("--uid", type=str, default=None, help="User ID (prompted if not provided)")
+    parser.add_argument("--default-uid", type=str, default=None,
+                        help="Set a persistent default user ID for this session (overrides SAYFIT_DEFAULT_USER)")
+    parser.add_argument("--update-profile", action="store_true",
+                        help="Re-run the personal profile survey to update daily targets")
     parser.add_argument("--test-folder", type=str, help="Run all test JSONs in a folder")
     parser.add_argument("--no-llm", action="store_true",
                         help="Step 3 ohne LLM – regelbasierter Fallback (kein API-Key nötig)")
@@ -483,9 +919,17 @@ Examples:
     if args.devmode:
         config.DEV_MODE = True
 
-    # --record/--wav will prompt interactively; all other modes fall back silently
+    # --default-uid overrides the env-backed DEFAULT_USER_ID for this session
+    if args.default_uid:
+        config.DEFAULT_USER_ID = args.default_uid
+
+    # --record/--wav will prompt interactively; all other modes fall back silently.
+    # Interactive menu (else branch) uses _get_last_user() itself, so leave uid=None there.
     if args.uid is None and not args.record and not args.wav:
-        args.uid = "default_user"
+        if args.text or args.input or args.test_folder:
+            # non-interactive single-shot modes: use last-used uid as silent default
+            args.uid = _get_last_user()
+        # else: interactive menu — uid assigned in the else branch below
 
     # configure LLM backend (must happen before any pipeline step)
     if not args.no_llm:
@@ -500,6 +944,12 @@ Examples:
     if args.build_index:
         from step2_retrieval.build_index import build_index
         build_index()
+        return
+
+    # update profile only (no meal logging)
+    if args.update_profile and not (args.record or args.wav or args.text or args.input):
+        uid = args.uid or input("  Your User ID [default_user]: ").strip() or "default_user"
+        _check_and_run_onboarding(uid, force=True)
         return
 
     # ensure index exists
@@ -518,8 +968,9 @@ Examples:
     if args.record or args.wav:
         # ── Step 0: Voice input ──────────────────────────────────────
         if args.uid is None:
-            args.uid = input("  Your User ID [default_user]: ").strip() or "default_user"
+            args.uid = input(f"  Your User ID [{config.DEFAULT_USER_ID}]: ").strip() or config.DEFAULT_USER_ID
             print()
+        _check_and_run_onboarding(args.uid, force=args.update_profile)
         if args.record:
             # Run recording+transcription in an isolated subprocess so that
             # PortAudio (sounddevice) and Whisper/PyTorch are fully torn down
@@ -686,12 +1137,13 @@ Examples:
             get_db().print_daily_summary(args.uid, meal_date)
 
     else:
-        # interactive mode
+        # interactive main-menu mode
         if not has_index:
             print("\n❌ Cannot run interactive mode without FAISS index. "
                   "Run: python main.py --build-index")
             sys.exit(1)
-        interactive_mode(use_llm=not args.no_llm)
+        uid = args.uid or _get_last_user()
+        run_main_menu(uid, use_llm=not args.no_llm, duration=args.duration)
 
 
 if __name__ == "__main__":

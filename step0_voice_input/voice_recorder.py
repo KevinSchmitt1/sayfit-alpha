@@ -105,9 +105,10 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
     """
     import sounddevice as sd
 
-    print(f"\n🎙️  [Step 0] Recording for {duration} seconds (Ctrl+C to stop early) …")
     _log(f"   Sample rate: {sample_rate} Hz | Channels: 1 (mono)")
-    print("   🔴 Recording …")
+
+    _BAR_W = 28
+    print(f"\n  \ud83d\udd34  Recording [{'\u2591' * _BAR_W}]  0 / {duration}s", end="", flush=True)
 
     try:
         audio = sd.rec(
@@ -116,12 +117,20 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
             channels=1,
             dtype="float32",
         )
+        # Show a per-second progress bar while the recording runs in the background
+        import time as _time
+        for _elapsed in range(1, duration + 1):
+            _time.sleep(1.0)
+            _filled = int((_elapsed / duration) * _BAR_W)
+            _bar = "\u2588" * _filled + "\u2591" * (_BAR_W - _filled)
+            _done = "  \u2713" if _elapsed == duration else ""
+            print(f"\r  \ud83d\udd34  Recording [{_bar}]  {_elapsed:2d} / {duration}s{_done}", end="", flush=True)
+        print()  # newline after bar completes
         sd.wait()
     except KeyboardInterrupt:
         import sounddevice as sd
         sd.stop()
-        # trim to what was actually recorded
-        print("\n   ⏹️  Recording stopped early by user.")
+        print("\n\n  \u23f9\ufe0f  Recording stopped early by user.")
 
     audio = audio.flatten()
     actual_duration = len(audio) / sample_rate
@@ -190,7 +199,7 @@ def transcribe(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> str:
     import whisper
 
     model_name = config.WHISPER_MODEL
-    print(f"\n🤖 [Step 0] Transcribing with Whisper (model: {model_name}) …")
+    print(f"  🧠  Transcribing …", end="", flush=True)
 
     model = whisper.load_model(model_name)
 
@@ -203,7 +212,8 @@ def transcribe(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> str:
 
     result = model.transcribe(audio, fp16=False)
     text = result["text"].strip()
-    print(f"   ✅ Transcription: \"{text}\"")
+    print(f"  done")  # close the "Transcribing …" line
+    _log(f"   Whisper raw: \"{text}\"")
     return text
 
 

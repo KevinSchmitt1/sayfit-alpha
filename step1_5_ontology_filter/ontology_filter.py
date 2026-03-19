@@ -185,17 +185,23 @@ def _load_embed_model():
             pass
         from sentence_transformers import SentenceTransformer
         import os as _os
-        if config.DEV_MODE:
+        # Suppress HuggingFace/transformers log noise via the logging API.
+        # We deliberately avoid OS-level fd redirection (dup2 to /dev/null)
+        # because that approach races with any background thread writing to
+        # sys.stdout (e.g. the Spinner), causing a deadlock on macOS.
+        import logging as _logging
+        _hf_loggers = [
+            "sentence_transformers", "transformers", "huggingface_hub",
+            "filelock", "torch",
+        ]
+        _prev_levels = {n: _logging.getLogger(n).level for n in _hf_loggers}
+        for n in _hf_loggers:
+            _logging.getLogger(n).setLevel(_logging.ERROR)
+        try:
             _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
-        else:
-            _devnull = _os.open(_os.devnull, _os.O_WRONLY)
-            _saved_out, _saved_err = _os.dup(1), _os.dup(2)
-            _os.dup2(_devnull, 1); _os.dup2(_devnull, 2)
-            try:
-                _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
-            finally:
-                _os.dup2(_saved_out, 1); _os.dup2(_saved_err, 2)
-                _os.close(_saved_out); _os.close(_saved_err); _os.close(_devnull)
+        finally:
+            for n, lv in _prev_levels.items():
+                _logging.getLogger(n).setLevel(lv)
     return _embed_model
 
 

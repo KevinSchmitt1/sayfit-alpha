@@ -36,15 +36,9 @@ def main():
                         help="Path to save the output JSON")
     args = parser.parse_args()
 
-    print("=" * 60)
-    print("  Step 0 – Voice Input (Record & Transcribe)")
-    print("=" * 60)
-
     if args.wav:
-        # transcribe existing .wav file
         result = transcribe_wav(args.wav, uid=args.uid)
     else:
-        # record from microphone
         duration = args.duration or config.WHISPER_RECORD_SECONDS
         result = record_and_transcribe(duration=duration, uid=args.uid)
 
@@ -53,9 +47,6 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(result, f, indent=2)
-
-    print(f"\n💾 Output saved to: {output_path}")
-    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

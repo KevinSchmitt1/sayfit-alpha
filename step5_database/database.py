@@ -109,7 +109,37 @@ class SayFitDB:
                     ON meal_items(meal_id) WHERE is_deleted = 0;
                 CREATE INDEX IF NOT EXISTS idx_calibrations_user 
                     ON calibrations(user_id);
+
+                -- User profiles (TDEE + daily macro targets)
+                CREATE TABLE IF NOT EXISTS user_profiles (
+                    user_id TEXT PRIMARY KEY,
+                    weight_kg REAL NOT NULL,
+                    age_years INTEGER NOT NULL,
+                    pal REAL NOT NULL,
+                    training_met REAL DEFAULT 0,
+                    training_hours_per_week REAL DEFAULT 0,
+                    kcal_daily REAL NOT NULL,
+                    protein_daily REAL NOT NULL,
+                    fat_daily REAL NOT NULL,
+                    carbs_daily REAL NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                );
             """)
+            # Add daily-target columns to users if they don't exist yet
+            # (SQLite has no ADD COLUMN IF NOT EXISTS, so we suppress the error)
+            for col, typ in [
+                ("kcal_daily",    "REAL"),
+                ("protein_daily", "REAL"),
+                ("fat_daily",     "REAL"),
+                ("carbs_daily",   "REAL"),
+            ]:
+                try:
+                    conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
+                    conn.commit()
+                except Exception:
+                    pass  # column already exists
 
     @contextmanager
     def get_connection(self, timeout: int = 30):
@@ -427,20 +457,169 @@ class SayFitDB:
             meal_name=meal_name,
         )
 
+    def save_user_profile(
+        self,
+        uid: str,
+        weight_kg: float,
+        age_years: int,
+        pal: float,
+        training_met: float,
+        training_hours_per_week: float,
+        kcal_daily: float,
+        protein_daily: float,
+        fat_daily: float,
+        carbs_daily: float,
+    ) -> None:
+        """Save (or update) the user's physical profile and daily macro targets."""
+        with self.get_connection() as conn:
+            self._ensure_user(conn, uid)
+            conn.execute(
+                """
+                INSERT INTO user_profiles
+                    (user_id, weight_kg, age_years, pal,
+                     training_met, training_hours_per_week,
+                     kcal_daily, protein_daily, fat_daily, carbs_daily,
+                     created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    weight_kg               = excluded.weight_kg,
+                    age_years               = excluded.age_years,
+                    pal                     = excluded.pal,
+                    training_met            = excluded.training_met,
+                    training_hours_per_week = excluded.training_hours_per_week,
+                    kcal_daily              = excluded.kcal_daily,
+                    protein_daily           = excluded.protein_daily,
+                    fat_daily               = excluded.fat_daily,
+                    carbs_daily             = excluded.carbs_daily,
+                    updated_at              = CURRENT_TIMESTAMP
+                """,
+                (uid, weight_kg, age_years, pal,
+                 training_met, training_hours_per_week,
+                 kcal_daily, protein_daily, fat_daily, carbs_daily),
+            )
+            # Mirror the 4 daily targets into users for easy access
+            conn.execute(
+                """
+                UPDATE users
+                SET kcal_daily    = ?,
+                    protein_daily = ?,
+                    fat_daily     = ?,
+                    carbs_daily   = ?,
+                    updated_at    = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+                """,
+                (kcal_daily, protein_daily, fat_daily, carbs_daily, uid),
+            )
+            conn.commit()
+
+    def get_user_profile(self, uid: str) -> Optional[Dict]:
+        """Return the stored user profile, or None if not yet set up."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                """
+                SELECT weight_kg, age_years, pal, training_met,
+                       training_hours_per_week,
+                       kcal_daily, protein_daily, fat_daily, carbs_daily,
+                       updated_at
+                FROM user_profiles
+                WHERE user_id = ?
+                """,
+                (uid,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
     def print_daily_summary(self, user_id: str, meal_date: str = None):
-        """Print aggregated nutrition for a day, fetched from the database."""
+        """Print aggregated nutrition for a day, with remaining targets if profile exists."""
         if not meal_date:
             meal_date = datetime.now().strftime("%Y-%m-%d")
         totals = self.get_daily_totals(user_id, meal_date)
+        profile = self.get_user_profile(user_id)
         print("\n" + "=" * 60)
         print(f"  Daily Summary – {meal_date}  (all meals today)")
         print("=" * 60)
-        print(f"  Calories : {totals['calories']:.1f} kcal")
-        print(f"  Protein  : {totals['protein']:.1f} g")
-        print(f"  Fat      : {totals['fat']:.1f} g")
-        print(f"  Carbs    : {totals['carbs']:.1f} g")
+        if profile:
+            def _row(label: str, consumed: float, target: float, unit: str) -> None:
+                rem = target - consumed
+                tag = "over" if rem < 0 else "left"
+                print(f"  {label:<10}: {consumed:6.1f} / {target:.0f} {unit}"
+                      f"   ({abs(rem):.1f} {tag})")
+            _row("Calories", totals["calories"], profile["kcal_daily"],    "kcal")
+            _row("Protein",  totals["protein"],  profile["protein_daily"], "g")
+            _row("Fat",      totals["fat"],       profile["fat_daily"],     "g")
+            _row("Carbs",    totals["carbs"],     profile["carbs_daily"],   "g")
+        else:
+            print(f"  Calories : {totals['calories']:.1f} kcal")
+            print(f"  Protein  : {totals['protein']:.1f} g")
+            print(f"  Fat      : {totals['fat']:.1f} g")
+            print(f"  Carbs    : {totals['carbs']:.1f} g")
         print(f"  Meals    : {totals['meal_count']}")
         print("=" * 60)
+
+    def delete_meal(self, meal_id: str) -> None:
+        """Soft-delete a meal and all its items."""
+        with self.get_connection() as conn:
+            conn.execute(
+                "UPDATE meals SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE meal_id = ?",
+                (meal_id,),
+            )
+            conn.execute(
+                "UPDATE meal_items SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE meal_id = ?",
+                (meal_id,),
+            )
+            conn.commit()
+
+    def delete_meal_item(self, item_id: str, meal_id: str) -> None:
+        """Soft-delete an item and recalculate the parent meal totals."""
+        with self.get_connection() as conn:
+            conn.execute(
+                "UPDATE meal_items SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE item_id = ?",
+                (item_id,),
+            )
+            conn.execute("""
+                UPDATE meals SET
+                    total_calories = (SELECT COALESCE(SUM(calories), 0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    updated_at     = CURRENT_TIMESTAMP
+                WHERE meal_id = ?
+            """, (meal_id, meal_id, meal_id, meal_id, meal_id))
+            conn.commit()
+
+    def update_meal_item_grams(self, item_id: str, meal_id: str, new_grams: float) -> None:
+        """Scale an item's macros proportionally to new_grams and refresh meal totals."""
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT amount_grams, calories, protein, fat, carbs FROM meal_items WHERE item_id = ?",
+                (item_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return
+            old_grams = float(row[0]) or 100.0
+            scale = new_grams / old_grams
+            conn.execute("""
+                UPDATE meal_items SET
+                    amount_grams = ?,
+                    calories     = ROUND(calories * ?, 1),
+                    protein      = ROUND(protein  * ?, 1),
+                    fat          = ROUND(fat       * ?, 1),
+                    carbs        = ROUND(carbs     * ?, 1),
+                    updated_at   = CURRENT_TIMESTAMP
+                WHERE item_id = ?
+            """, (new_grams, scale, scale, scale, scale, item_id))
+            conn.execute("""
+                UPDATE meals SET
+                    total_calories = (SELECT COALESCE(SUM(calories), 0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    updated_at     = CURRENT_TIMESTAMP
+                WHERE meal_id = ?
+            """, (meal_id, meal_id, meal_id, meal_id, meal_id))
+            conn.commit()
 
     def get_stats(self, user_id: str, days: int = 7) -> Dict[str, Any]:
         """Get nutrition stats for the last N days."""
