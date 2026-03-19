@@ -334,6 +334,22 @@ def resolve_portion_hint(
     multiplier = float(quantity_parsed) if quantity_parsed is not None else 1.0
     key = item_name.lower().strip().replace("-", " ")
 
+    # Vague quantity words override the multiplier to ~0.2 of a default serving.
+    # They are NOT units, so norm_unit stays None and the tier chain provides
+    # the base gram value (food default or category default).
+    _VAGUE_QUANTITY_MULTIPLIER = 0.2
+    _VAGUE_QUANTITIES = {
+        "some", "some of",
+        "a bit", "a bit of",
+        "a little", "a little bit", "a little bit of",
+        "a few",
+        "a couple", "a couple of",
+    }
+    _vague = unit_hint and unit_hint.lower().strip() in _VAGUE_QUANTITIES
+    if _vague:
+        multiplier = _VAGUE_QUANTITY_MULTIPLIER
+        unit_hint  = None   # don't pass it to UNIT_ALIASES — treat as no unit
+
     # Explicit gram/ml spec — quantity_parsed IS the gram amount
     if unit_hint and unit_hint.lower().strip() in ("g", "gram", "grams", "ml"):
         grams = float(quantity_parsed) if quantity_parsed is not None else 100.0

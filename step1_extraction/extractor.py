@@ -41,8 +41,9 @@ what they ate or drank. Your job:
      "half a" → 0.5, "2 full" → 2, "a bowl of" → 1, "three and a half" → 3.5), \
      or null if quantity_raw is null. Encode fractions directly as decimals.
    - "unit_hint": the serving unit if explicitly mentioned (e.g. "slice", \
-     "glass", "bowl", "cup", "piece", "plate", "handful", "can", "bottle"), \
-     or null if no specific unit was spoken.
+     "glass", "bowl", "cup", "piece", "plate", "handful", "can", "bottle", \
+     "some", "a bit", "a little", "a few"), \
+     or null if no specific unit or vague quantity was spoken.
    - "description": describe the processing degree or context \
      (e.g. "frozen", "homemade", "raw fruit", "fried", "boiled", "grilled", \
       "restaurant", "canned", "fresh"). If unknown, write "unspecified".

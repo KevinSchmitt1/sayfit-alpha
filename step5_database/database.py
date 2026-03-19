@@ -571,21 +571,35 @@ class SayFitDB:
             conn.commit()
 
     def delete_meal_item(self, item_id: str, meal_id: str) -> None:
-        """Soft-delete an item and recalculate the parent meal totals."""
+        """Soft-delete an item and recalculate the parent meal totals.
+        If no active items remain, the meal itself is also soft-deleted."""
         with self.get_connection() as conn:
             conn.execute(
                 "UPDATE meal_items SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE item_id = ?",
                 (item_id,),
             )
-            conn.execute("""
-                UPDATE meals SET
-                    total_calories = (SELECT COALESCE(SUM(calories), 0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
-                    total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
-                    total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
-                    total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
-                    updated_at     = CURRENT_TIMESTAMP
-                WHERE meal_id = ?
-            """, (meal_id, meal_id, meal_id, meal_id, meal_id))
+            # check whether any active items remain
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM meal_items WHERE meal_id = ? AND is_deleted = 0",
+                (meal_id,),
+            ).fetchone()[0]
+
+            if remaining == 0:
+                # no items left — delete the meal itself
+                conn.execute(
+                    "UPDATE meals SET is_deleted = 1, updated_at = CURRENT_TIMESTAMP WHERE meal_id = ?",
+                    (meal_id,),
+                )
+            else:
+                conn.execute("""
+                    UPDATE meals SET
+                        total_calories = (SELECT COALESCE(SUM(calories), 0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                        total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                        total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                        total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                        updated_at     = CURRENT_TIMESTAMP
+                    WHERE meal_id = ?
+                """, (meal_id, meal_id, meal_id, meal_id, meal_id))
             conn.commit()
 
     def update_meal_item_grams(self, item_id: str, meal_id: str, new_grams: float) -> None:

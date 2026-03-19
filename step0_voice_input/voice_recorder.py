@@ -108,7 +108,7 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
     _log(f"   Sample rate: {sample_rate} Hz | Channels: 1 (mono)")
 
     _BAR_W = 28
-    print(f"\n  \ud83d\udd34  Recording [{'\u2591' * _BAR_W}]  0 / {duration}s", end="", flush=True)
+    print(f"\n  \U0001F534  Recording [{'\u2591' * _BAR_W}]  0 / {duration}s", end="", flush=True)
 
     try:
         audio = sd.rec(
@@ -124,7 +124,7 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
             _filled = int((_elapsed / duration) * _BAR_W)
             _bar = "\u2588" * _filled + "\u2591" * (_BAR_W - _filled)
             _done = "  \u2713" if _elapsed == duration else ""
-            print(f"\r  \ud83d\udd34  Recording [{_bar}]  {_elapsed:2d} / {duration}s{_done}", end="", flush=True)
+            print(f"\r  \U0001F534  Recording [{_bar}]  {_elapsed:2d} / {duration}s{_done}", end="", flush=True)
         print()  # newline after bar completes
         sd.wait()
     except KeyboardInterrupt:

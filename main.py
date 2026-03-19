@@ -724,8 +724,8 @@ def _edit_meal_of_day(uid: str, meal_date: str) -> None:
                     if items:
                         _show()
                     else:
-                        print("  (all items removed — meal totals reset to 0)")
-                    continue
+                        print("  🗑️  All items removed — meal deleted.")
+                        break
                 print(f"  ❌ Choose 1–{len(items)}.")
             except ValueError:
                 print("  ❌ Use d1, d2 … to remove an item.")
