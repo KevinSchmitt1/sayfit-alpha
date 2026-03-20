@@ -122,6 +122,7 @@ class SayFitDB:
                     protein_daily REAL NOT NULL,
                     fat_daily REAL NOT NULL,
                     carbs_daily REAL NOT NULL,
+                    goal TEXT DEFAULT 'maintain',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -140,6 +141,12 @@ class SayFitDB:
                     conn.commit()
                 except Exception:
                     pass  # column already exists
+            # Add goal column to user_profiles for existing databases
+            try:
+                conn.execute("ALTER TABLE user_profiles ADD COLUMN goal TEXT DEFAULT 'maintain'")
+                conn.commit()
+            except Exception:
+                pass  # column already exists
 
     @contextmanager
     def get_connection(self, timeout: int = 30):
@@ -469,6 +476,7 @@ class SayFitDB:
         protein_daily: float,
         fat_daily: float,
         carbs_daily: float,
+        goal: str = "maintain",
     ) -> None:
         """Save (or update) the user's physical profile and daily macro targets."""
         with self.get_connection() as conn:
@@ -479,8 +487,8 @@ class SayFitDB:
                     (user_id, weight_kg, age_years, pal,
                      training_met, training_hours_per_week,
                      kcal_daily, protein_daily, fat_daily, carbs_daily,
-                     created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                     goal, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT(user_id) DO UPDATE SET
                     weight_kg               = excluded.weight_kg,
@@ -492,11 +500,12 @@ class SayFitDB:
                     protein_daily           = excluded.protein_daily,
                     fat_daily               = excluded.fat_daily,
                     carbs_daily             = excluded.carbs_daily,
+                    goal                    = excluded.goal,
                     updated_at              = CURRENT_TIMESTAMP
                 """,
                 (uid, weight_kg, age_years, pal,
                  training_met, training_hours_per_week,
-                 kcal_daily, protein_daily, fat_daily, carbs_daily),
+                 kcal_daily, protein_daily, fat_daily, carbs_daily, goal),
             )
             # Mirror the 4 daily targets into users for easy access
             conn.execute(
@@ -521,7 +530,7 @@ class SayFitDB:
                 SELECT weight_kg, age_years, pal, training_met,
                        training_hours_per_week,
                        kcal_daily, protein_daily, fat_daily, carbs_daily,
-                       updated_at
+                       goal, updated_at
                 FROM user_profiles
                 WHERE user_id = ?
                 """,

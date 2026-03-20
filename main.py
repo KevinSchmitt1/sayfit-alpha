@@ -548,6 +548,25 @@ def run_onboarding_survey(uid: str) -> None:
             except ValueError:
                 print("  ❌ Please enter whole numbers.")
 
+    # ── Goal ──────────────────────────────────────────────────────────────
+    print("""
+  What is your current goal?
+  [1] Maintain weight  (no calorie adjustment)
+  [2] Lose weight      (−300 kcal deficit)
+  [3] Gain weight      (+300 kcal surplus)""")
+
+    _goal_map = {1: "maintain", 2: "lose", 3: "gain"}
+    _goal_adj = {"maintain": 0, "lose": -300, "gain": +300}
+    while True:
+        try:
+            goal_choice = int(input("\n  Goal [1–3]: ").strip())
+            if goal_choice in _goal_map:
+                goal = _goal_map[goal_choice]
+                break
+            print("  ❌ Please enter 1, 2 or 3.")
+        except ValueError:
+            print("  ❌ Please enter a number.")
+
     # ── Energy calculations ───────────────────────────────────────────────
     # Resting Metabolic Rate (Müller formula; MJ/day × 239 → kcal/day)
     # Male:   0.047 × kg + 1.009 + 0.001452 × age + 3.2
@@ -566,6 +585,7 @@ def run_onboarding_survey(uid: str) -> None:
     net_training_kcal = max(0.0, (training_met - 1.0) * weight * daily_training_hours)
 
     kcal_daily = round(rmr_kcal + activity_kcal + net_training_kcal, 0)
+    kcal_daily += _goal_adj[goal]
 
     # ── Macro targets ─────────────────────────────────────────────────────
     protein_g    = round(2.0 * weight, 1)
@@ -586,14 +606,18 @@ def run_onboarding_survey(uid: str) -> None:
         protein_daily=protein_g,
         fat_daily=fat_g,
         carbs_daily=carbs_g,
+        goal=goal,
     )
 
     breakdown = f"RMR {rmr_kcal:.0f}  +  activity {activity_kcal:.0f}"
     if net_training_kcal > 0:
         breakdown += f"  +  training {net_training_kcal:.0f}"
 
+    _goal_labels = {"lose": "Lose weight", "maintain": "Maintain weight", "gain": "Gain weight"}
+    _adj_str = {"lose": " (−300 kcal)", "maintain": "", "gain": " (+300 kcal)"}
     print(f"\n  ✅ Profile saved for '{uid}'")
     print("\n  📊 Your daily targets:")
+    print(f"     Goal     : {_goal_labels[goal]}{_adj_str[goal]}")
     print(f"     Calories : {kcal_daily:.0f} kcal  ({breakdown})")
     print(f"     Protein  : {protein_g:.1f} g   (2 g × {weight:.0f} kg)")
     print(f"     Fat      : {fat_g:.1f} g   (0.9 g × {weight:.0f} kg)")
