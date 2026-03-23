@@ -171,6 +171,8 @@ def rerank_single_item(
 
     # attach date_time from extraction
     result["date_time"] = extracted_item.get("date_time", "")
+    # carry quantity so the correction step can store per-unit grams
+    result["quantity_raw"] = extracted_item.get("quantity_raw")
 
     # attach nutrition_per_100g from matched candidate so correction step can rescale
     matched_doc_id = result.get("matched_doc_id", "")
@@ -319,6 +321,7 @@ def rerank_single_item_heuristic(
         "confidence_note":        conf_note,
         "nutrition":              nutrition,
         "nutrition_per_100g":     per100,
+        "quantity_raw":           quantity_raw,
         "date_time":              extracted_item.get("date_time", ""),
     }
 

@@ -190,6 +190,7 @@ def _load_embed_model():
         # because that approach races with any background thread writing to
         # sys.stdout (e.g. the Spinner), causing a deadlock on macOS.
         import logging as _logging
+        import transformers as _transformers
         _hf_loggers = [
             "sentence_transformers", "transformers", "huggingface_hub",
             "filelock", "torch",
@@ -197,11 +198,13 @@ def _load_embed_model():
         _prev_levels = {n: _logging.getLogger(n).level for n in _hf_loggers}
         for n in _hf_loggers:
             _logging.getLogger(n).setLevel(_logging.ERROR)
+        _transformers.logging.disable_progress_bar()
         try:
             _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
         finally:
             for n, lv in _prev_levels.items():
                 _logging.getLogger(n).setLevel(lv)
+            _transformers.logging.enable_progress_bar()
     return _embed_model
 
 

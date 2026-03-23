@@ -75,7 +75,7 @@ ONTOLOGY_BOOST_RANK3 = float(os.getenv("ONTOLOGY_BOOST_RANK3", "1.03"))
 # ── Whisper / Voice input settings ───────────────────────────────────────────
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 WHISPER_SAMPLE_RATE = int(os.getenv("WHISPER_SAMPLE_RATE", "16000"))
-WHISPER_RECORD_SECONDS = int(os.getenv("WHISPER_RECORD_SECONDS", "10"))
+WHISPER_RECORD_SECONDS = int(os.getenv("WHISPER_RECORD_SECONDS", "15"))
 WHISPER_TARGET_DB = float(os.getenv("WHISPER_TARGET_DB", "-20"))
 
 # ── Developer mode ──────────────────────────────────────────────────────────
