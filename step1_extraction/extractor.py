@@ -82,6 +82,9 @@ Return ONLY valid JSON matching this schema exactly:
 
 Rules:
 - Number items sequentially: item1, item2, …
+- Correct obvious spelling mistakes and voice-transcription errors in food names \
+  (e.g. "protein power" → "protein powder", "bred" → "bread"), but preserve \
+  brand names and regional/foreign foods as-is.
 - Normalise to singular where appropriate (3 eggs → item_name "egg", quantity_raw "3").
 - If the user mentions a combined dish (e.g. "chicken salad"), treat it as ONE item.
 - "category_ranks" must contain only strings from the allowed categories list.

@@ -108,7 +108,7 @@ def render_table(results: list[dict]) -> str:
     lines.append(sep)
     total_data = [
         "",
-        "DAILY TOTAL",
+        "TOTAL",
         "",
         f"{total_grams:.0f}",
         f"{total_kcal:.1f}",
@@ -134,7 +134,7 @@ def render_summary(results: list[dict]) -> str:
     total_carbs = sum((r.get("nutrition", {}).get("carbs", 0) or 0) for r in results)
 
     lines = [
-        "\n📊 Daily Totals:",
+        "\n📊 Meal Totals:",
         f"   Calories : {total_kcal:.1f} kcal",
         f"   Protein  : {total_prot:.1f} g",
         f"   Fat      : {total_fat:.1f} g",
