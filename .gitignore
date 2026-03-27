@@ -214,3 +214,5 @@ outputs/
 .env
 .DS_Store
 inputs/*.wav
+
+bugs.md
