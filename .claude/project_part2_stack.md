@@ -25,27 +25,30 @@ part2/
 
 ## Week-by-Week Summary
 
-### Week 1 — Engineering Foundations
+### 1. Software Engineering
+## Engineering Foundations
 - Jupyter notebooks → Python modules refactoring
 - Python packaging (`pyproject.toml`)
 - Unit and integration testing
 - OOP refactoring patterns
 - **Tech:** Python 3.x, pytest, pyproject.toml
 
-### Week 2 — APIs & Containerization
+## APIs & Containerization
 - **FastAPI** for ML-serving REST APIs
 - **Docker** (Dockerfile, docker-compose)
 - **Kubernetes** (deployment.yaml, service.yaml basics)
 - Refactoring project with service/database/model/schema layers
 - **Tech:** FastAPI, Docker, Docker Compose, Kubernetes
 
-### Week 3 — Data Pipelines
+### Data Engineering
+## Data Pipelines
 - **Prefect** workflow orchestration (ETL + ELT flows)
 - **dbt** for data transformations (DuckDB + Postgres targets)
 - Batch and stream processing concepts
 - **Tech:** Prefect, dbt, DuckDB, PostgreSQL, Docker Compose, pandas
 
-### Week 4 — ML Deployment
+### ML Engineering
+## Deployment
 - ML model basics and evaluation
 - **MLflow** for experiment tracking and model registry
 - FastAPI as ML webservice layer (`predict.py`, `data_model.py`)
@@ -53,7 +56,7 @@ part2/
 - Deployment project: end-to-end ML API in Docker
 - **Tech:** MLflow, FastAPI, sklearn, pytest, Docker
 
-### Week 5 — MLOps & Monitoring (active week)
+### MLOps & Monitoring (active week)
 - **DVC** (Data Version Control) — `dvc.yaml` pipeline stages for reproducible training
 - **GitHub Actions CI/CD** — automated training pipelines via `.github/workflows/train.yaml`
 - **Evidently** — ML monitoring (data drift, batch predictions)
