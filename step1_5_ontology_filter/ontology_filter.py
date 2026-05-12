@@ -184,7 +184,6 @@ def _load_embed_model():
         except ImportError:
             pass
         from sentence_transformers import SentenceTransformer
-        import os as _os
         # Suppress HuggingFace/transformers log noise via the logging API.
         # We deliberately avoid OS-level fd redirection (dup2 to /dev/null)
         # because that approach races with any background thread writing to

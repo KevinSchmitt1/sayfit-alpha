@@ -70,12 +70,16 @@ def _load_resources():
         import os as _os
         _devnull = _os.open(_os.devnull, _os.O_WRONLY)
         _saved_out, _saved_err = _os.dup(1), _os.dup(2)
-        _os.dup2(_devnull, 1); _os.dup2(_devnull, 2)
+        _os.dup2(_devnull, 1)
+        _os.dup2(_devnull, 2)
         try:
             return SentenceTransformer(config.EMBEDDING_MODEL_NAME)
         finally:
-            _os.dup2(_saved_out, 1); _os.dup2(_saved_err, 2)
-            _os.close(_saved_out); _os.close(_saved_err); _os.close(_devnull)
+            _os.dup2(_saved_out, 1)
+            _os.dup2(_saved_err, 2)
+            _os.close(_saved_out)
+            _os.close(_saved_err)
+            _os.close(_devnull)
 
     try:
         import step1_5_ontology_filter.ontology_filter as _ont
