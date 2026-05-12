@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
-from step1_extraction.extractor import extract_items, extract_from_file  # noqa: E402
+from step1_extraction.extractor import extract_from_file  # noqa: E402
 
 EXAMPLE_INPUT = Path(__file__).parent / "example_input.json"
 EXAMPLE_OUTPUT = Path(__file__).parent / "example_output.json"
