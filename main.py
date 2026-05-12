@@ -1097,7 +1097,8 @@ Examples:
 
             # ── Step 5: Database ─────────────────────────────────────────
             if reranked.get("results"):
-                if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
+                if config.DEV_MODE:
+                    print("\n💾 [Step 5] Saving to database …")
                 meal_date = date_time[:10]
                 get_db().save_pipeline_result(reranked, uid=uid, input_text=voice_data["text"], meal_date=meal_date)
                 get_db().print_daily_summary(uid, meal_date)
@@ -1125,7 +1126,8 @@ Examples:
 
             # ── Step 5: Database ─────────────────────────────────────────
             if reranked.get("results"):
-                if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
+                if config.DEV_MODE:
+                    print("\n💾 [Step 5] Saving to database …")
                 meal_date = date_time[:10]
                 get_db().save_pipeline_result(reranked, uid=uid, input_text=data["text"], meal_date=meal_date)
                 get_db().print_daily_summary(uid, meal_date)
@@ -1205,7 +1207,8 @@ Examples:
 
             # ── Step 5: Database ─────────────────────────────────────────
             if reranked.get("results"):
-                if config.DEV_MODE: print("\n💾 [Step 5] Saving to database …")
+                if config.DEV_MODE:
+                    print("\n💾 [Step 5] Saving to database …")
                 meal_date = date_time[:10]
                 get_db().save_pipeline_result(reranked, uid=args.uid, input_text=args.text, meal_date=meal_date)
                 get_db().print_daily_summary(args.uid, meal_date)

@@ -11,7 +11,7 @@ SQLite-basierte persistente Speicherung von Mahlzeiten mit:
 
 import sqlite3
 import uuid
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any

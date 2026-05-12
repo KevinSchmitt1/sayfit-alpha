@@ -12,9 +12,7 @@ Input  : microphone audio  OR  .wav file
 Output : JSON  {"text": "...", "date_time": "...", "UID": "..."}
 """
 
-import json
 import sys
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -199,7 +197,7 @@ def transcribe(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> str:
     import whisper
 
     model_name = config.WHISPER_MODEL
-    print(f"  🧠  Transcribing …", end="", flush=True)
+    print("  🧠  Transcribing …", end="", flush=True)
 
     model = whisper.load_model(model_name)
 
@@ -212,7 +210,7 @@ def transcribe(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> str:
 
     result = model.transcribe(audio, fp16=False)
     text = result["text"].strip()
-    print(f"  done")  # close the "Transcribing …" line
+    print("  done")  # close the "Transcribing …" line
     _log(f"   Whisper raw: \"{text}\"")
     return text
 
