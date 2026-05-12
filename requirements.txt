@@ -26,3 +26,9 @@ openai-whisper>=20231117
 # seaborn
 # ipykernel
 # duckdb
+
+
+# formatting
+
+ruff
+black

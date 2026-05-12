@@ -21,16 +21,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 import llm_client  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── System prompt ────────────────────────────────────────────────────────────
 SYSTEM_PROMPT = """\
 You are a food-logging assistant. The user will give you a sentence describing \
 what they ate or drank. Your job:
 
-1. Extract every distinct food/drink item mentioned.
+1. Extract every food/drink item mentioned.
 2. For each item, return:
    - "item_name": a short, clear name (e.g. "pepperoni pizza")
    - "quantity_raw": the amount as spoken (e.g. "3", "half a", "a bowl of"), \
      or null if not mentioned
+   - "quantity_parsed": numeric value of the quantity (e.g. "three" → 3, \
+     "half a" → 0.5, "2 full" → 2, "a bowl of" → 1, "three and a half" → 3.5), \
+     or null if quantity_raw is null. Encode fractions directly as decimals.
+     If things are mentioned twice (e.g. "two eggs and a couple of eggs"), sum them up (→ 4).
+   - "unit_hint": the serving unit if explicitly mentioned (e.g. "slice", \
+     "glass", "bowl", "cup", "piece", "plate", "handful", "can", "bottle", \
+     "some", "a bit", "a little", "a few"), \
+     or null if no specific unit or vague quantity was spoken.
    - "description": describe the processing degree or context \
      (e.g. "frozen", "homemade", "raw fruit", "fried", "boiled", "grilled", \
       "restaurant", "canned", "fresh"). If unknown, write "unspecified".
@@ -57,6 +71,8 @@ Return ONLY valid JSON matching this schema exactly:
     "item1": {
       "item_name": "<string>",
       "quantity_raw": "<string or null>",
+      "quantity_parsed": <number or null>,
+      "unit_hint": "<string or null>",
       "description": "<string>",
       "category_ranks": ["<category>"]
     }
@@ -66,6 +82,9 @@ Return ONLY valid JSON matching this schema exactly:
 
 Rules:
 - Number items sequentially: item1, item2, …
+- Correct obvious spelling mistakes and voice-transcription errors in food names \
+  (e.g. "protein power" → "protein powder", "bred" → "bread"), but preserve \
+  brand names and regional/foreign foods as-is.
 - Normalise to singular where appropriate (3 eggs → item_name "egg", quantity_raw "3").
 - If the user mentions a combined dish (e.g. "chicken salad"), treat it as ONE item.
 - "category_ranks" must contain only strings from the allowed categories list.
@@ -117,8 +136,8 @@ def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> di
     Regelbasierter Ersatz für den LLM-Extraktor (kein API-Aufruf nötig).
     Teilt den Text an Kommas / 'and' / 'also' auf und bereinigt Füllwörter.
     """
-    print("\n🔍 [Step 1] Extracting food items from text [Heuristik] …")
-    print(f"   Input text: \"{text}\"")
+    _log("\n🔍 [Step 1] Extracting food items from text [heuristic] …")
+    _log(f"   Input text: \"{text}\"")
 
     raw_segments = _SPLIT_PATTERN.split(text)
     items: dict = {}
@@ -146,7 +165,7 @@ def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> di
         queries.append(f"{name} (unspecified)")
         idx += 1
 
-    print(f"   ✅ Extracted {len(items)} item(s): {queries}")
+    _log(f"   ✅ Extracted {len(items)} item(s): {queries}")
     return {"items": items, "queries": queries}
 
 
@@ -170,8 +189,8 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
     if not use_llm:
         return extract_items_heuristic(text, date_time=date_time, uid=uid)
 
-    print("\n🔍 [Step 1] Extracting food items from text …")
-    print(f"   Input text: \"{text}\"")
+    _log("\n🔍 [Step 1] Extracting food items from text …")
+    _log(f"   Input text: \"{text}\"")
 
     response = llm_client.get_client().chat.completions.create(
         model=llm_client.extraction_model(),
@@ -192,13 +211,20 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
             raw = raw[4:]
     result = json.loads(raw)
 
+    # normalise: some models return items as a list instead of a keyed dict
+    if isinstance(result.get("items"), list):
+        result["items"] = {
+            f"item{i+1}": item
+            for i, item in enumerate(result["items"])
+        }
+
     # attach metadata to each item
     for key in result.get("items", {}):
         result["items"][key]["date_time"] = date_time
         result["items"][key]["uid"] = uid
 
     n = len(result.get("items", {}))
-    print(f"   ✅ Extracted {n} item(s): {result.get('queries', [])}")
+    _log(f"   ✅ Extracted {n} item(s): {result.get('queries', [])}")
     return result
 
 

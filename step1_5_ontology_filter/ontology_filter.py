@@ -38,6 +38,12 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── lazy-loaded lookup structures ───────────────────────────────────────────
 _loaded = False
 # exact lookup: normalised item_name → (cat_l1, cat_l2, cat_l3)
@@ -55,6 +61,112 @@ _l2_labels: list[str] = []          # L2 strings in index order
 _l2_l1s: list[str] = []             # matching L1 for each L2
 _l2_vecs: np.ndarray | None = None  # shape (n_l2, dim), normalised
 _embed_model = None                 # SentenceTransformer singleton
+_food_index: dict | None = None     # food_ontology_300 lookup index (lazy)
+_portion_defaults_ont: dict | None = None  # portion_defaults.json cache
+
+# ── food_ontology_300 vector index (built once alongside _food_index) ────────
+_food_ont_labels: list[str] = []        # canonical label for each entry
+_food_ont_entries: list[dict] = []      # corresponding food dicts
+_food_ont_vecs: np.ndarray | None = None  # (n, dim), normalised
+_ONTOLOGY_SIM_THRESHOLD = 0.72          # minimum cosine sim to accept a fuzzy hit
+
+# Import unit alias map from food_portion_lookup (used for unit normalisation)
+try:
+    from .food_portion_lookup import UNIT_ALIASES as _UNIT_ALIASES
+except ImportError:
+    _UNIT_ALIASES: dict = {}
+
+# ── Category-level portion defaults ─────────────────────────────────────────
+# Median adult serving sizes (grams) per L1 category and unit type.
+# Used as Tier-3 fallback when a food is not in food_ontology_300 or user_prefs.
+# Values derived from standard dietitian portion guides (BDA, USDA MyPlate).
+_CATEGORY_PORTION_DEFAULTS: dict[str, dict[str, float]] = {
+    # Composed dishes, frozen meals — hearty plate-sized portions
+    "prepared & frozen meals": {
+        "serving": 350, "portion": 350, "plate": 400, "bowl": 400,
+        "half": 175, "can": 400, "packet": 300, "default": 350,
+    },
+    # Cooked pasta/rice — pasta triples in weight when cooked
+    "grains & pasta": {
+        "plate": 120, "bowl": 120, "cup": 50, "cup cooked": 200,
+        "serving": 120, "portion": 120, "default": 120,
+    },
+    # Protein cuts — moderate portions, fillet-sized
+    "meat": {
+        "serving": 150, "portion": 150, "slice": 80, "fillet": 170,
+        "steak": 225, "patty": 120, "piece": 120, "default": 150,
+    },
+    "poultry": {
+        "serving": 150, "portion": 150, "breast": 175, "thigh": 120,
+        "wing": 90, "piece": 120, "default": 150,
+    },
+    "fish & seafood": {
+        "serving": 140, "fillet": 150, "portion": 140, "piece": 120, "default": 140,
+    },
+    # Vegetables — cup or bowl-based
+    "vegetables": {
+        "serving": 120, "cup": 120, "bowl": 200, "portion": 150,
+        "handful": 60, "plate": 200, "default": 120,
+    },
+    # Fruits — piece or cup-based
+    "fruits": {
+        "serving": 150, "piece": 150, "cup": 150, "handful": 100,
+        "bowl": 200, "default": 150,
+    },
+    # Beverages — glass or can-based
+    "beverages": {
+        "glass": 250, "cup": 250, "mug": 300, "bottle": 500,
+        "can": 330, "shot": 30, "serving": 250, "default": 250,
+    },
+    # Dairy items vary widely — use conservative serving
+    "dairy & eggs": {
+        "glass": 250, "cup": 250, "slice": 30, "serving": 150,
+        "portion": 150, "bowl": 200, "default": 150,
+    },
+    # Baked goods — slice or piece-based
+    "baked goods": {
+        "slice": 40, "piece": 80, "serving": 80, "roll": 50,
+        "muffin": 100, "default": 80,
+    },
+    # Snacks — small handfuls or packets
+    "snacks": {
+        "serving": 30, "handful": 30, "packet": 25, "bag": 50,
+        "bowl": 50, "default": 30,
+    },
+    # Confectionery — very small amounts
+    "sweets & confectionery": {
+        "serving": 40, "piece": 15, "scoop": 60, "bar": 50,
+        "square": 10, "default": 40,
+    },
+    # Condiments — tablespoon-level
+    "condiments & sauces": {
+        "tbsp": 15, "tablespoon": 15, "tsp": 5, "teaspoon": 5,
+        "serving": 15, "cup": 240, "default": 15,
+    },
+    # Fats — very small amounts
+    "fats & oils": {
+        "tbsp": 14, "tablespoon": 14, "tsp": 5, "teaspoon": 5,
+        "serving": 14, "default": 14,
+    },
+    # Soups — bowl or cup-based
+    "soups": {
+        "bowl": 350, "cup": 240, "serving": 300, "plate": 400,
+        "mug": 300, "default": 300,
+    },
+    # Legumes — cooked cup-based
+    "legumes & beans": {
+        "cup": 180, "serving": 150, "bowl": 200, "portion": 150, "default": 150,
+    },
+    # Plant-based — similar to dairy / meat substitutes
+    "plant-based alternatives": {
+        "glass": 240, "cup": 240, "serving": 150, "piece": 100,
+        "portion": 150, "default": 150,
+    },
+    # Supplements — scoop / serving
+    "supplements": {
+        "scoop": 30, "serving": 30, "tbsp": 15, "tsp": 5, "default": 30,
+    },
+}
 
 
 def _load_embed_model():
@@ -72,7 +184,27 @@ def _load_embed_model():
         except ImportError:
             pass
         from sentence_transformers import SentenceTransformer
-        _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        import os as _os
+        # Suppress HuggingFace/transformers log noise via the logging API.
+        # We deliberately avoid OS-level fd redirection (dup2 to /dev/null)
+        # because that approach races with any background thread writing to
+        # sys.stdout (e.g. the Spinner), causing a deadlock on macOS.
+        import logging as _logging
+        import transformers as _transformers
+        _hf_loggers = [
+            "sentence_transformers", "transformers", "huggingface_hub",
+            "filelock", "torch",
+        ]
+        _prev_levels = {n: _logging.getLogger(n).level for n in _hf_loggers}
+        for n in _hf_loggers:
+            _logging.getLogger(n).setLevel(_logging.ERROR)
+        _transformers.logging.disable_progress_bar()
+        try:
+            _embed_model = SentenceTransformer(config.EMBEDDING_MODEL_NAME)
+        finally:
+            for n, lv in _prev_levels.items():
+                _logging.getLogger(n).setLevel(lv)
+            _transformers.logging.enable_progress_bar()
     return _embed_model
 
 
@@ -94,7 +226,217 @@ def _build_l2_embed_index() -> None:
     _l2_l1s = l1s
     _l2_vecs = np.array(vecs, dtype="float32")
     _l2_embed_loaded = True
-    print(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
+    _log(f"   📐 [Step 1.5] L2 semantic index built – {len(labels)} categories")
+
+
+def _load_food_index() -> dict:
+    """Lazy-load and build the food_ontology_300 lookup index + vector index."""
+    global _food_index, _food_ont_labels, _food_ont_entries, _food_ont_vecs
+    if _food_index is not None:
+        return _food_index
+    ont_path = config.FOOD_ONTOLOGY_FILE
+    if not ont_path.exists():
+        _food_index = {}
+        return _food_index
+    with open(ont_path) as f:
+        ontology = json.load(f)
+    index: dict = {}
+    # For the vector index use the canonical label of each food entry once
+    labels: list[str] = []
+    entries: list[dict] = []
+    for food in ontology.get("foods", []):
+        fid = food.get("food_id") or food.get("item_id", "")
+        canonical = food.get("label", "") or fid
+        keys = {fid, canonical, *food.get("aliases", [])}
+        for k in keys:
+            if k:
+                index[k.strip().lower().replace("-", " ")] = food
+        if canonical:
+            labels.append(canonical.strip().lower().replace("-", " "))
+            entries.append(food)
+    _food_index = index
+    # Build normalised vector index over canonical labels
+    if labels:
+        model = _load_embed_model()
+        vecs = model.encode(labels, normalize_embeddings=True, show_progress_bar=False)
+        _food_ont_labels = labels
+        _food_ont_entries = entries
+        _food_ont_vecs = np.array(vecs, dtype="float32")
+        _log(f"   📐 [Step 1.5] Food ontology vector index built – {len(labels)} entries")
+    return _food_index
+
+
+def _fuzzy_food_entry(key: str) -> dict | None:
+    """Return the best-matching food_ontology_300 entry for *key*.
+
+    First tries exact dict lookup, then falls back to cosine similarity
+    over the canonical-label vector index.  Returns None when the best
+    similarity is below _ONTOLOGY_SIM_THRESHOLD.
+    """
+    index = _load_food_index()  # also builds vector index as side-effect
+    if key in index:
+        return index[key]
+    if _food_ont_vecs is None or len(_food_ont_labels) == 0:
+        return None
+    model = _load_embed_model()
+    q_vec = model.encode([key], normalize_embeddings=True,
+                         show_progress_bar=False)[0].astype("float32")
+    sims = _food_ont_vecs @ q_vec
+    best_idx = int(np.argmax(sims))
+    best_sim = float(sims[best_idx])
+    _log(f"      [portion fuzzy] '{key}' → '{_food_ont_labels[best_idx]}' (sim={best_sim:.3f})")
+    if best_sim >= _ONTOLOGY_SIM_THRESHOLD:
+        return _food_ont_entries[best_idx]
+    return None
+
+
+def _load_user_prefs_for_uid(uid: str) -> dict:
+    """Return item_name → pref_dict for the given uid from user_prefs.json."""
+    try:
+        with open(config.CALIBRATION_FILE) as f:
+            return json.load(f).get(uid, {})
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _load_portion_defaults_flat() -> dict:
+    """Load portion_defaults.json (flat item → {default_grams, unit})."""
+    global _portion_defaults_ont
+    if _portion_defaults_ont is not None:
+        return _portion_defaults_ont
+    try:
+        with open(config.PORTION_DEFAULTS_FILE) as f:
+            _portion_defaults_ont = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        _portion_defaults_ont = {}
+    return _portion_defaults_ont
+
+
+def resolve_portion_hint(
+    item_name: str,
+    quantity_parsed: float | None,
+    unit_hint: str | None,
+    uid: str,
+    cat_l1: str,
+) -> dict:
+    """
+    Resolve portion size in grams through a 4-tier priority chain.
+
+    Tier 1  User preferences (user_prefs.json) — personalized serving sizes
+    Tier 2  food_ontology_300 — 300 known foods with per-unit gram weights
+    Tier 3  Category-level defaults — per L1 category + unit type
+    Tier 4  portion_defaults.json — simple flat lookup
+    Tier 5  100 g fallback
+
+    quantity_parsed acts as a multiplier (e.g. 3 slices × 125 g = 375 g).
+    Explicit gram specifications (unit_hint = "g"/"ml") bypass all tiers.
+
+    Returns {"grams": float, "unit": str, "source": str}
+    How to improve: make the search engine similar to step 2 (retriever)
+    """
+    multiplier = float(quantity_parsed) if quantity_parsed is not None else 1.0
+    key = item_name.lower().strip().replace("-", " ")
+
+    # Vague quantity words override the multiplier to ~0.2 of a default serving.
+    # They are NOT units, so norm_unit stays None and the tier chain provides
+    # the base gram value (food default or category default).
+    _VAGUE_QUANTITY_MULTIPLIER = 0.2
+    _VAGUE_QUANTITIES = {
+        "some", "some of",
+        "a bit", "a bit of",
+        "a little", "a little bit", "a little bit of",
+        "a few",
+        "a couple", "a couple of",
+    }
+    _vague = unit_hint and unit_hint.lower().strip() in _VAGUE_QUANTITIES
+    if _vague:
+        multiplier = _VAGUE_QUANTITY_MULTIPLIER
+        unit_hint  = None   # don't pass it to UNIT_ALIASES — treat as no unit
+
+    # Explicit gram/ml spec — quantity_parsed IS the gram amount
+    if unit_hint and unit_hint.lower().strip() in ("g", "gram", "grams", "ml"):
+        grams = float(quantity_parsed) if quantity_parsed is not None else 100.0
+        return {"grams": grams, "unit": unit_hint.lower(), "source": "explicit_grams"}
+
+    # Normalize unit using UNIT_ALIASES from food_portion_lookup
+    norm_unit: str | None = None
+    if unit_hint:
+        u = unit_hint.lower().strip()
+        norm_unit = _UNIT_ALIASES.get(u, u)
+
+    # ── Tier 1: User preferences ──────────────────────────────────────────
+    if uid:
+        user_prefs = _load_user_prefs_for_uid(uid)
+        # Exact lookup first; fuzzy fallback via cosine sim over pref keys
+        pref_match = user_prefs.get(key)
+        if pref_match is None and user_prefs:
+            # embed the query and all stored pref keys, pick best match
+            pref_keys = list(user_prefs.keys())
+            model = _load_embed_model()
+            vecs = model.encode([key] + pref_keys, normalize_embeddings=True,
+                                show_progress_bar=False).astype("float32")
+            q_vec, pref_vecs = vecs[0], vecs[1:]
+            sims = pref_vecs @ q_vec
+            best_idx = int(np.argmax(sims))
+            if float(sims[best_idx]) >= _ONTOLOGY_SIM_THRESHOLD:
+                pref_match = user_prefs[pref_keys[best_idx]]
+        if pref_match is not None:
+            pref_grams = float(pref_match.get("preferred_grams", 0))
+            if pref_grams > 0:
+                return {
+                    "grams": round(pref_grams * multiplier, 1),
+                    "unit": pref_match.get("preferred_unit", "g"),
+                    "source": "user_pref",
+                }
+
+    # ── Tier 2: food_ontology_300 (exact + fuzzy vector search) ───────────
+    food_entry = _fuzzy_food_entry(key)
+    if food_entry:
+        common_units = food_entry.get("common_units", {})
+        if norm_unit and norm_unit in common_units:
+            return {
+                "grams": round(float(common_units[norm_unit]) * multiplier, 1),
+                "unit": norm_unit,
+                "source": "ontology_unit",
+            }
+        default_grams = float(food_entry.get("default_grams", 0))
+        if default_grams > 0:
+            return {
+                "grams": round(default_grams * multiplier, 1),
+                "unit": food_entry.get("default_unit", "g"),
+                "source": "ontology_default",
+            }
+
+    # ── Tier 3: Category-level defaults ────────────────────────────────────
+    cat_units = _CATEGORY_PORTION_DEFAULTS.get(cat_l1.lower().strip(), {})
+    if cat_units:
+        if norm_unit and norm_unit in cat_units:
+            return {
+                "grams": round(float(cat_units[norm_unit]) * multiplier, 1),
+                "unit": norm_unit,
+                "source": "category_unit",
+            }
+        cat_default = cat_units.get("default", 0)
+        if cat_default > 0:
+            return {
+                "grams": round(float(cat_default) * multiplier, 1),
+                "unit": "serving",
+                "source": "category_default",
+            }
+
+    # ── Tier 4: portion_defaults.json ──────────────────────────────────────
+    flat = _load_portion_defaults_flat()
+    if key in flat:
+        flat_grams = float(flat[key].get("default_grams", 0))
+        if flat_grams > 0:
+            return {
+                "grams": round(flat_grams * multiplier, 1),
+                "unit": flat[key].get("unit", "g"),
+                "source": "portion_defaults",
+            }
+
+    # ── Tier 5: fallback ───────────────────────────────────────────────────
+    return {"grams": round(100.0 * multiplier, 1), "unit": "g", "source": "fallback"}
 
 
 def classify_l2_semantic(item_name: str, allowed_l1s: list[str]) -> str:
@@ -223,7 +565,7 @@ def _load() -> None:
 
     csv_path = config.USDA_FINAL_CSV
     if not csv_path.exists():
-        print(f"⚠️  [Step 1.5] usda_final.csv not found at {csv_path} – using keyword fallback only")
+        _log(f"⚠️  [Step 1.5] usda_final.csv not found at {csv_path} – using keyword fallback only")
         _loaded = True
         return
 
@@ -334,7 +676,7 @@ def apply_ontology_filter(extraction: dict) -> dict:
         ]
     """
     _load()
-    print("\n🏷️  [Step 1.5] Applying ontology filter …")
+    _log("\n🏷️  [Step 1.5] Applying ontology filter …")
 
     items: dict = extraction.get("items", {})
     queries: list = extraction.get("queries", [])
@@ -367,7 +709,18 @@ def apply_ontology_filter(extraction: dict) -> dict:
             "source":           source,
         }
         rank_str = " > ".join(f"{r!r}" for r in ranked_l1) if ranked_l1 else "'other'"
-        print(f"   {name!r:30s} [{source}] → {rank_str}")
+
+        # Resolve portion hint (Tier 1-5 chain) and attach to both dicts
+        qty_parsed = item.get("quantity_parsed")
+        unit_h = item.get("unit_hint")
+        item_uid = item.get("uid", "")
+        portion_hint_result = resolve_portion_hint(name, qty_parsed, unit_h, item_uid, l1)
+        ontology[key]["portion_hint"] = portion_hint_result
+        items[key]["portion_hint"] = portion_hint_result
+
+        ph = portion_hint_result
+        ph_str = f"{ph['grams']}g [{ph['source']}]"
+        _log(f"   {name!r:30s} [{source}] → {rank_str}  |  {ph_str}")
 
     # Build category_hints aligned with the queries list
     item_keys = list(items.keys())
@@ -387,7 +740,7 @@ def apply_ontology_filter(extraction: dict) -> dict:
     result["ontology"] = ontology
     result["category_hints"] = category_hints
 
-    print(f"   ✅ Ontology filter done – {len(ontology)} item(s) classified.")
+    _log(f"   ✅ Ontology filter done – {len(ontology)} item(s) classified.")
     return result
 
 

@@ -22,6 +22,12 @@ import scipy.io.wavfile as wavfile
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── Audio settings ───────────────────────────────────────────────────────────
 SAMPLE_RATE = config.WHISPER_SAMPLE_RATE
 RECORD_SECONDS = config.WHISPER_RECORD_SECONDS
@@ -37,13 +43,13 @@ def normalize_audio(audio: np.ndarray) -> np.ndarray:
     This prevents clipping and ensures consistent input levels for Whisper
     regardless of microphone gain.
     """
-    print("   🔊 Normalising audio (peak normalisation) …")
+    _log("   🔊 Normalising audio (peak normalisation) …")
     peak = np.max(np.abs(audio))
     if peak == 0:
-        print("   ⚠️  Audio is silent – nothing to normalise.")
+        _log("   ⚠️  Audio is silent – nothing to normalise.")
         return audio
     normalised = audio / peak
-    print(f"   ✅ Peak was {peak:.4f} → normalised to 1.0")
+    _log(f"   ✅ Peak was {peak:.4f} → normalised to 1.0")
     return normalised
 
 
@@ -61,10 +67,10 @@ def adjust_db(audio: np.ndarray, target_db: float = TARGET_DB) -> np.ndarray:
     target_db : float
         Target RMS level in dB (e.g. -20 dB is a good default).
     """
-    print(f"   🎚️  Adjusting audio level to {target_db} dB RMS …")
+    _log(f"   🎚️  Adjusting audio level to {target_db} dB RMS …")
     rms = np.sqrt(np.mean(audio ** 2))
     if rms == 0:
-        print("   ⚠️  Audio RMS is 0 – skipping dB adjustment.")
+        _log("   ⚠️  Audio RMS is 0 – skipping dB adjustment.")
         return audio
 
     current_db = 20 * np.log10(rms)
@@ -76,7 +82,7 @@ def adjust_db(audio: np.ndarray, target_db: float = TARGET_DB) -> np.ndarray:
     # soft-clip to prevent any values exceeding [-1, 1]
     adjusted = np.clip(adjusted, -1.0, 1.0)
 
-    print(f"   ✅ Current RMS: {current_db:.1f} dB → applied {gain_db:+.1f} dB gain")
+    _log(f"   ✅ Current RMS: {current_db:.1f} dB → applied {gain_db:+.1f} dB gain")
     return adjusted
 
 
@@ -97,9 +103,10 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
     """
     import sounddevice as sd
 
-    print(f"\n🎙️  [Step 0] Recording for {duration} seconds (Ctrl+C to stop early) …")
-    print(f"   Sample rate: {sample_rate} Hz | Channels: 1 (mono)")
-    print("   🔴 Recording …")
+    _log(f"   Sample rate: {sample_rate} Hz | Channels: 1 (mono)")
+
+    _BAR_W = 28
+    print(f"\n  \U0001F534  Recording [{'\u2591' * _BAR_W}]  0 / {duration}s", end="", flush=True)
 
     try:
         audio = sd.rec(
@@ -108,16 +115,34 @@ def record_audio(duration: int = RECORD_SECONDS, sample_rate: int = SAMPLE_RATE)
             channels=1,
             dtype="float32",
         )
+        # Show a per-second progress bar while the recording runs in the background
+        import time as _time
+        for _elapsed in range(1, duration + 1):
+            _time.sleep(1.0)
+            _filled = int((_elapsed / duration) * _BAR_W)
+            _bar = "\u2588" * _filled + "\u2591" * (_BAR_W - _filled)
+            _done = "  \u2713" if _elapsed == duration else ""
+            print(f"\r  \U0001F534  Recording [{_bar}]  {_elapsed:2d} / {duration}s{_done}", end="", flush=True)
+        print()  # newline after bar completes
         sd.wait()
     except KeyboardInterrupt:
         import sounddevice as sd
         sd.stop()
-        # trim to what was actually recorded
-        print("\n   ⏹️  Recording stopped early by user.")
+        print("\n\n  \u23f9\ufe0f  Recording stopped early by user.")
 
     audio = audio.flatten()
     actual_duration = len(audio) / sample_rate
-    print(f"   ✅ Recorded {actual_duration:.1f}s of audio ({len(audio):,} samples)")
+    _log(f"   ✅ Recorded {actual_duration:.1f}s of audio ({len(audio):,} samples)")
+
+    # Explicitly terminate PortAudio before returning so its internal threads
+    # and semaphores are released.  Without this, FAISS/OpenMP (loaded later in
+    # the pipeline) conflicts with PortAudio's OS-level resources on macOS,
+    # causing a segfault.
+    try:
+        sd._terminate()
+    except Exception:
+        pass
+
     return audio
 
 
@@ -128,28 +153,28 @@ def load_wav(wav_path: str | Path) -> tuple[np.ndarray, int]:
     Handles both int16 and float32 wav files.
     """
     wav_path = Path(wav_path)
-    print(f"\n📂 [Step 0] Loading WAV file: {wav_path}")
+    _log(f"\n📂 [Step 0] Loading WAV file: {wav_path}")
 
     if not wav_path.exists():
         raise FileNotFoundError(f"WAV file not found: {wav_path}")
 
     sr, audio = wavfile.read(str(wav_path))
-    print(f"   Sample rate: {sr} Hz | Samples: {len(audio):,} | Duration: {len(audio)/sr:.1f}s")
+    _log(f"   Sample rate: {sr} Hz | Samples: {len(audio):,} | Duration: {len(audio)/sr:.1f}s")
 
     # convert to float32 if needed
     if audio.dtype == np.int16:
         audio = audio.astype(np.float32) / 32768.0
-        print("   Converted int16 → float32")
+        _log("   Converted int16 → float32")
     elif audio.dtype == np.int32:
         audio = audio.astype(np.float32) / 2147483648.0
-        print("   Converted int32 → float32")
+        _log("   Converted int32 → float32")
     elif audio.dtype != np.float32:
         audio = audio.astype(np.float32)
 
     # convert stereo to mono
     if audio.ndim > 1:
         audio = audio.mean(axis=1)
-        print("   Converted stereo → mono")
+        _log("   Converted stereo → mono")
 
     return audio, sr
 
@@ -172,20 +197,21 @@ def transcribe(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> str:
     import whisper
 
     model_name = config.WHISPER_MODEL
-    print(f"\n🤖 [Step 0] Transcribing with Whisper (model: {model_name}) …")
+    print(f"  🧠  Transcribing …", end="", flush=True)
 
     model = whisper.load_model(model_name)
 
     # Whisper expects 16 kHz – resample if needed
     if sample_rate != 16000:
-        print(f"   Resampling {sample_rate} Hz → 16000 Hz …")
+        _log(f"   Resampling {sample_rate} Hz → 16000 Hz …")
         from scipy.signal import resample
         num_samples = int(len(audio) * 16000 / sample_rate)
         audio = resample(audio, num_samples).astype(np.float32)
 
     result = model.transcribe(audio, fp16=False)
     text = result["text"].strip()
-    print(f"   ✅ Transcription: \"{text}\"")
+    print(f"  done")  # close the "Transcribing …" line
+    _log(f"   Whisper raw: \"{text}\"")
     return text
 
 

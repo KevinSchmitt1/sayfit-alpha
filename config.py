@@ -75,11 +75,23 @@ ONTOLOGY_BOOST_RANK3 = float(os.getenv("ONTOLOGY_BOOST_RANK3", "1.03"))
 # ── Whisper / Voice input settings ───────────────────────────────────────────
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 WHISPER_SAMPLE_RATE = int(os.getenv("WHISPER_SAMPLE_RATE", "16000"))
-WHISPER_RECORD_SECONDS = int(os.getenv("WHISPER_RECORD_SECONDS", "10"))
+WHISPER_RECORD_SECONDS = int(os.getenv("WHISPER_RECORD_SECONDS", "15"))
 WHISPER_TARGET_DB = float(os.getenv("WHISPER_TARGET_DB", "-20"))
 
-# ── Portion defaults file ───────────────────────────────────────────────────
-PORTION_DEFAULTS_FILE = ROOT_DIR / "portion_defaults.json"
+# ── Developer mode ──────────────────────────────────────────────────────────
+# When True, all step modules print verbose debug output.
+# Set via `python main.py --devmode`, or by the SAYFIT_DEVMODE=1 env var
+# (used when Step 0 runs as an isolated subprocess).
+DEV_MODE: bool = os.getenv("SAYFIT_DEVMODE", "0") == "1"
+
+# ── Default user ─────────────────────────────────────────────────────────────
+# Used as the pre-filled suggestion when the program prompts for a user ID.
+# Override via SAYFIT_DEFAULT_USER env var or the --default-uid CLI flag.
+DEFAULT_USER_ID: str = os.getenv("SAYFIT_DEFAULT_USER", "default_user")
+
+# ── Portion / ontology data files ──────────────────────────────────────────
+PORTION_DEFAULTS_FILE = DATA_DIR / "portion_defaults.json"
+FOOD_ONTOLOGY_FILE    = DATA_DIR / "food_ontology_300.json"
 
 # ── Calibration file ────────────────────────────────────────────────────────
 CALIBRATION_FILE = CALIBRATION_DIR / "user_prefs.json"

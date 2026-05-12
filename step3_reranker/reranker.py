@@ -19,6 +19,12 @@ import config  # noqa: E402
 import llm_client  # noqa: E402
 from step3_reranker.calibration import get_user_preference  # noqa: E402
 
+
+def _log(*args, **kwargs):
+    """Print only when developer mode is active."""
+    if config.DEV_MODE:
+        print(*args, **kwargs)
+
 # ── Portion defaults ────────────────────────────────────────────────────────
 _portion_defaults: dict | None = None
 
@@ -47,10 +53,13 @@ Your tasks:
 A) SELECT the single best candidate that matches the extracted item. Use the \
    description to validate: e.g. "peach (raw fruit)" should NOT match \
    "PEACH PIE". Prefer generic/plain items when description is "unspecified".
-B) ESTIMATE the total amount in grams:
-   - Use the spoken quantity if given (e.g. "3" eggs × 60 g each = 180 g).
-   - Use portion defaults / user calibration if no quantity is spoken.
-   - For fractional amounts like "half a pizza", compute accordingly.
+B) DETERMINE the total amount in grams:
+   - A pre-resolved "portion_hint" is provided with fields "grams", "unit", \
+   and "source". It already accounts for the spoken quantity and user \
+   preferences. Use "portion_hint.grams" as the final amount_grams.
+   - EXCEPTION: if "quantity_raw" contains an explicit gram/ml weight \
+   (e.g. "150g", "200ml"), override portion_hint and use that exact value.
+   - Do not second-guess portion_hint unless you detect a clear error.
 C) CALCULATE the final macros by scaling the per-100g values to the \
    estimated grams.
 
@@ -108,10 +117,18 @@ def rerank_single_item(
     quantity_raw = extracted_item.get("quantity_raw")
     description = extracted_item.get("description", "unspecified")
 
-    # look up portion defaults + user calibrations
-    defaults = _load_portion_defaults()
-    portion_hint = defaults.get(item_name.lower(), {})
-    user_pref = get_user_preference(uid, item_name) if uid else None
+    # Portion hint pre-resolved by Step 1.5 (preferred); fall back to old lookup
+    portion_hint = extracted_item.get("portion_hint")
+    if not portion_hint:
+        defaults = _load_portion_defaults()
+        flat_hint = defaults.get(item_name.lower(), {})
+        user_pref = get_user_preference(uid, item_name) if uid else None
+        if user_pref or flat_hint:
+            portion_hint = {
+                "grams": user_pref["preferred_grams"] if user_pref else flat_hint.get("default_grams", 100),
+                "unit": "g",
+                "source": "user_pref" if user_pref else "portion_defaults",
+            }
 
     # build the user message for the LLM
     user_msg = json.dumps({
@@ -132,8 +149,7 @@ def rerank_single_item(
             }
             for c in candidates[:20]  # max 20 candidates
         ],
-        "portion_defaults": portion_hint if portion_hint else None,
-        "user_calibration": user_pref,
+        "portion_hint": portion_hint,
     }, indent=2)
 
     response = llm_client.get_client().chat.completions.create(
@@ -155,6 +171,8 @@ def rerank_single_item(
 
     # attach date_time from extraction
     result["date_time"] = extracted_item.get("date_time", "")
+    # carry quantity so the correction step can store per-unit grams
+    result["quantity_raw"] = extracted_item.get("quantity_raw")
 
     # attach nutrition_per_100g from matched candidate so correction step can rescale
     matched_doc_id = result.get("matched_doc_id", "")
@@ -248,15 +266,24 @@ def rerank_single_item_heuristic(
     score = best.get("adjusted_score", 0)
 
     # ── 2. Portion bestimmen ──────────────────────────────────────────────────
-    portion_hint = defaults.get(item_name.lower(), {})
-    default_grams = portion_hint.get("default_grams", 100)
-    unit = portion_hint.get("unit", "g")
+    # Priority: explicit grams → portion_hint (from Step 1.5) → flat defaults
+    portion_hint_resolved = extracted_item.get("portion_hint", {})
+    quantity_parsed = extracted_item.get("quantity_parsed")
 
     if _is_absolute_grams(quantity_raw):
         import re
         amount_grams = float(re.match(r"^(\d+(?:\.\d+)?)", str(quantity_raw).strip()).group(1))
+        unit = "g"
+    elif portion_hint_resolved.get("grams"):
+        amount_grams = float(portion_hint_resolved["grams"])
+        unit = portion_hint_resolved.get("unit", "g")
     else:
-        multiplier = _parse_quantity(quantity_raw)
+        # Fallback: flat defaults + quantity multiplier
+        flat_hint = defaults.get(item_name.lower(), {})
+        default_grams = flat_hint.get("default_grams", 100)
+        unit = flat_hint.get("unit", "g")
+        multiplier = (float(quantity_parsed) if quantity_parsed is not None
+                      else _parse_quantity(quantity_raw))
         amount_grams = default_grams * (multiplier if multiplier is not None else 1.0)
 
     # ── 3. Nährwerte berechnen ────────────────────────────────────────────────
@@ -294,6 +321,7 @@ def rerank_single_item_heuristic(
         "confidence_note":        conf_note,
         "nutrition":              nutrition,
         "nutrition_per_100g":     per100,
+        "quantity_raw":           quantity_raw,
         "date_time":              extracted_item.get("date_time", ""),
     }
 
@@ -317,8 +345,8 @@ def rerank_all(
     -------
     dict with "results" list of finalised food items.
     """
-    mode_label = "LLM" if use_llm else "Heuristik (kein LLM)"
-    print(f"\n🧠 [Step 3] Reranking & Portionsschätzung [{mode_label}] …")
+    mode_label = "LLM" if use_llm else "heuristic (no LLM)"
+    _log(f"\n🧠 [Step 3] Reranking & portion estimation [{mode_label}] …")
 
     items_dict = extraction_output.get("items", {})
     retrieval_items = retrieval_output.get("items", [])
@@ -338,14 +366,14 @@ def rerank_all(
     results = []
     for i, (item_key, item_data) in enumerate(items_dict.items()):
         item_name = item_data.get("item_name", "")
-        print(f"\n   [{i+1}/{len(items_dict)}] Processing: \"{item_name}\"")
+        _log(f"\n   [{i+1}/{len(items_dict)}] Processing: \"{item_name}\"")
 
         # find corresponding candidates
         query = queries[i] if i < len(queries) else ""
         candidates = query_to_candidates.get(query, [])
 
         if not candidates:
-            print(f"   ⚠️  No candidates found for \"{item_name}\" – skipping LLM, using unknown estimate.")
+            _log(f"   ⚠️  No candidates found for \"{item_name}\" – skipping LLM, using unknown estimate.")
             results.append({
                 "item_name": item_name,
                 "matched_name": "UNKNOWN",
@@ -368,12 +396,12 @@ def rerank_all(
         else:
             result = rerank_single_item_heuristic(item_data, candidates)
         conf = result.get("confidence", "")
-        print(f"   → Matched: \"{result.get('matched_name', '')}\" | "
-              f"{result.get('amount_grams', '?')}g | "
-              f"confidence={conf}")
+        _log(f"   → Matched: \"{result.get('matched_name', '')}\" | "
+             f"{result.get('amount_grams', '?')}g | "
+             f"confidence={conf}")
         if conf in ("low", "medium") and result.get("confidence_note"):
-            print(f"     ℹ️  {result['confidence_note']}")
+            _log(f"     ℹ️  {result['confidence_note']}")
         results.append(result)
 
-    print(f"\n   ✅ Reranking complete – {len(results)} items finalised.")
+    _log(f"\n   ✅ Reranking complete – {len(results)} items finalised.")
     return {"results": results}
