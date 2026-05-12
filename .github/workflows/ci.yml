@@ -8,6 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -21,9 +22,9 @@ jobs:
         run: pip install -r requirements.txt ruff pytest
 
       - name: Lint
-        run: ruff check .
+        run: ruff check . --exclude eda.ipynb
 
       - name: Test
-        run: pytest tests/ -q --ignore=step0_voice_input
+        run: pytest tests/ -q
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

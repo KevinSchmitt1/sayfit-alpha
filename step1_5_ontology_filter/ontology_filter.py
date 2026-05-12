@@ -87,7 +87,7 @@ def _build_l2_embed_index() -> None:
         return
 
     labels = list(_l2_to_l1.keys())
-    l1s = [_l2_to_l1[l] for l in labels]
+    l1s = [_l2_to_l1[label] for label in labels]
     model = _load_embed_model()
     vecs = model.encode(labels, normalize_embeddings=True, show_progress_bar=False)
     _l2_labels = labels

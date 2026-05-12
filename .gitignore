@@ -214,3 +214,9 @@ outputs/
 .env
 .DS_Store
 inputs/*.wav
+
+# Tooling artifacts (MemPalace, skills)
+entities.json
+mempalace.yaml
+skills-lock.json
+.claude/skills/

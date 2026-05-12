@@ -9,11 +9,9 @@ Takes the finalised food items from Step 3 and produces:
 Standalone:  python -m step4_output.run [--input step3_output.json]
 """
 
-import csv
 import json
 import sys
 from datetime import datetime
-from io import StringIO
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

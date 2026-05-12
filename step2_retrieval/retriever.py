@@ -13,8 +13,6 @@ Standalone:
     python -m step2_retrieval.run [--input step1_output.json]
 """
 
-import json
-import pickle
 import re
 import sys
 from pathlib import Path

@@ -12,9 +12,7 @@ Input  : microphone audio  OR  .wav file
 Output : JSON  {"text": "...", "date_time": "...", "UID": "..."}
 """
 
-import json
 import sys
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
