@@ -1,4 +1,4 @@
-# Pre-Planning: Dependencies & SQL/Docker Architecture
+nning: Dependencies & SQL/Docker Architecture
 
 > **What this file is:** team alignment doc — what must be agreed with the data engineer and ML engineer before Kevin's technical work can proceed.
 > **Kevin's technical plan lives in:** [sw-eng_mlops.md](sw-eng_mlops.md)

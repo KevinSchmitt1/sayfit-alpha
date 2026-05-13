@@ -220,4 +220,5 @@ inputs/*.wav
 entities.json
 mempalace.yaml
 skills-lock.json
-.claude/skills/
+.claude/commands/
+.claude/plan
