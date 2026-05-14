@@ -222,4 +222,3 @@ mempalace.yaml
 skills-lock.json
 .claude/commands/
 .claude/plan
-/tests/test_retriever_scoring.py
