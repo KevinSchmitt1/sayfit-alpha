@@ -41,11 +41,11 @@ def load_and_prepare_data() -> pd.DataFrame:
     csv_path = config.COMBINED_FINAL_CSV
     if not csv_path.exists():
         raise FileNotFoundError(
-            f"usda_final.csv not found at {csv_path}.\n"
+            f"data path not found at {csv_path}.\n"
             "Place the file in the data/ directory and try again."
         )
 
-    print(f"📂 Loading USDA final: {csv_path}")
+    print(f"📂 Loading data: {csv_path}")
     df = pd.read_csv(csv_path, dtype=str, low_memory=False)
     df.columns = [c.strip() for c in df.columns]
     print(f"   ✅ {len(df):,} rows loaded")

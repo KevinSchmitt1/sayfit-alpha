@@ -16,6 +16,8 @@ import re
 import sys
 from pathlib import Path
 
+from langfuse import observe
+
 # allow running from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
@@ -168,7 +170,7 @@ def extract_items_heuristic(text: str, date_time: str = "", uid: str = "") -> di
     _log(f"   ✅ Extracted {len(items)} item(s): {queries}")
     return {"items": items, "queries": queries}
 
-
+@observe(name="step1_extraction")
 def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool = True) -> dict:
     """
     Call the extraction LLM and return structured items + queries.
