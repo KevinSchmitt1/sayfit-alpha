@@ -14,6 +14,8 @@ import json
 import sys
 from pathlib import Path
 
+from langfuse import observe
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 import llm_client  # noqa: E402
@@ -91,7 +93,7 @@ Rules:
 - Output ONLY the JSON, nothing else.
 """
 
-
+@observe(name="step3_reranker")
 def rerank_single_item(
     extracted_item: dict,
     candidates: list[dict],

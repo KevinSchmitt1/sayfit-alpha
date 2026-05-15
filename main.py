@@ -26,6 +26,7 @@ import json
 import sys
 import threading
 import time
+from langfuse import observe
 from datetime import datetime
 from pathlib import Path
 
@@ -148,7 +149,7 @@ def _make_batch_dir() -> Path:
     batch_dir.mkdir()
     return batch_dir
 
-
+@observe(name="pipeline_run")
 def run_pipeline(
     text: str,
     date_time: str = "",
