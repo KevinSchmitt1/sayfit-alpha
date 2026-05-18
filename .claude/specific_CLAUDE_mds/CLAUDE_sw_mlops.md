@@ -33,8 +33,10 @@ python main.py --no-llm         # heuristic mode, no API keys needed
 
 **Tests:**
 ```bash
-pytest tests/ -q                          # fast — retriever is mocked
-pytest tests/ --cov=. --cov-report=term-missing   # with coverage
+pytest tests/unit/ -q                              # fast — retriever is mocked
+pytest tests/unit/ -m llm_path -q                 # production path only
+pytest tests/unit/ -m heuristic -q                # fallback path only
+pytest tests/unit/ --cov=. --cov-report=term-missing   # with coverage
 ```
 
 **Full stack (API + DB + Langfuse):**
@@ -50,7 +52,7 @@ Runs on every push and every PR targeting `main`.
 
 **Current steps:**
 1. `ruff check .` — syntax and lint
-2. `pytest tests/ -q` — test suite (retriever mocked, no FAISS loaded)
+2. `pytest tests/unit/ -q` — unit test suite (retriever mocked, no FAISS loaded)
 
 **Required GitHub secret:** `OPENAI_API_KEY` (prevents KeyError if any test touches the LLM path)
 
@@ -63,27 +65,57 @@ Runs on every push and every PR targeting `main`.
 
 ## Testing
 
-**Structure:**
+**Folder layout:**
+
+```
+tests/
+  unit/               ← CI runs this; all current tests live here
+    conftest.py       ← autouse fixture: patches retriever with fake candidates
+    test_smoke.py
+    test_extractor.py
+    test_database.py
+    test_formatter.py
+    test_reranker.py
+    test_retriever_scoring.py
+  integration/        ← not yet written; real API calls, not run in CI by default
+```
+
+**pytest marks** (registered in `pyproject.toml`):
+
+| Mark | What | When to run |
+|------|------|-------------|
+| `heuristic` | Rule-based fallback path internals (`_clean_segment`, `_parse_quantity`, `extract_items_heuristic`) | Always — fast, no mocks needed |
+| `llm_path` | Production LLM path — client mocked, wiring and parsing tested | Always — no real API calls |
+| `integration` | _(future)_ Real API calls, prompt quality, schema compliance | Pre-release or nightly — costs money |
+
+**Unit test files:**
 
 | File | What it tests |
 |------|--------------|
-| `tests/conftest.py` | autouse fixture: patches `step2_retrieval.retriever.retrieve` with fake candidates |
-| `tests/test_smoke.py` | `extract_items()` returns expected shape (`items` + `queries` keys) |
-| `tests/test_extraction.py` | _(planned)_ unit tests for `extract_items()` using `use_llm=False` |
-| `tests/test_retriever_scoring.py` | _(planned)_ unit tests for pure scoring helpers: `_extract_core_name`, `_compute_name_penalty`, `_build_query_variants`, `_safe_float` — no FAISS, no mocks needed |
-| `tests/test_ontology_filter.py` | _(planned)_ unit tests for `apply_ontology_filter()` |
-| `tests/test_reranker.py` | _(planned)_ unit tests for `rerank_single_item_heuristic()` |
-| `tests/test_api.py` | _(planned)_ FastAPI integration tests via `httpx.AsyncClient` |
-| `tests/test_integration.py` | _(planned)_ full `run_pipeline()` end-to-end |
+| `unit/conftest.py` | autouse fixture: patches `step2_retrieval.retriever.retrieve` with fake candidates — scoped to `unit/` so it won't bleed into future integration tests |
+| `unit/test_smoke.py` | `extract_items()` returns expected shape (`items` + `queries` keys) |
+| `unit/test_extractor.py` | `@pytest.mark.heuristic`: `_clean_segment`, `_parse_quantity`, `extract_items_heuristic`; `@pytest.mark.llm_path`: JSON parsing, list→dict normalization, metadata attachment, markdown-fenced responses, malformed JSON behavior, voice noise handling |
+| `unit/test_retriever_scoring.py` | Pure scoring helpers: `_extract_core_name`, `_compute_name_penalty`, `_build_query_variants`, `_safe_float` — no FAISS, no mocks needed |
+| `unit/test_reranker.py` | `rerank_single_item_heuristic()` |
+| `unit/test_database.py` | DB layer |
+| `unit/test_formatter.py` | Formatter step |
+
+**Planned (not yet written):**
+
+| File | What it will test |
+|------|------------------|
+| `unit/test_api.py` | FastAPI endpoints via `httpx.AsyncClient` |
+| `integration/test_extractor_llm.py` | Real Groq API call — prompt quality, schema compliance, voice noise correction |
+| `integration/test_pipeline.py` | Full `run_pipeline()` end-to-end |
 
 > ⚠️ **REVIEW REQUIRED — test DB strategy not yet decided**
 > API and integration tests require a database. Strategy (testcontainers-python vs GitHub Actions
 > `services: postgres`) depends on whether the data engineer delivers a Docker image. Revisit
-> before writing `test_api.py` or `test_integration.py`.
+> before writing `test_api.py` or `integration/test_pipeline.py`.
 
-**Two rules that apply to all tests:**
-1. The retriever autouse mock in `conftest.py` is always active — `_load_resources()` (sentence-transformers + FAISS index) is never called during any test run.
-2. Unit tests for extraction use `use_llm=False` — the heuristic path requires no LLM call or mock.
+**Rules that apply to all unit tests:**
+1. The retriever autouse mock in `unit/conftest.py` is always active — `_load_resources()` (sentence-transformers + FAISS index) is never called during any unit test run.
+2. LLM-path tests mock the client — no real API calls, no cost. Real prompt quality testing belongs in `tests/integration/`.
 
 **Input fixtures:** `input_tests/SayFit-Test_ENG_01.json` … `_29.json` — 29 real test cases usable as payload fixtures.
 

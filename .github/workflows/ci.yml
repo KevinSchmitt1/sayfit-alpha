@@ -25,7 +25,7 @@ jobs:
         run: ruff check . --exclude eda.ipynb
 
       - name: Test
-        run: pytest tests/ -q
+        run: pytest tests/unit/ -q
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: .

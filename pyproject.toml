@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+markers = [
+    "heuristic: rule-based fallback path — rarely used in prod, fast to run",
+    "llm_path: production LLM extraction path — mock the client, test the wiring",
+]

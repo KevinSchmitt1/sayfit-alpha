@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Skill(mempalace:mempalace)"
+      "Skill(mempalace:mempalace)",
+      "Bash(python -m pytest --version)",
+      "Bash(.venv/bin/python -m pytest tests/test_reranker.py tests/test_formatter.py tests/test_database.py tests/test_extractor.py -v)",
+      "Bash(.venv/bin/python -m pytest tests/test_reranker.py tests/test_formatter.py tests/test_database.py tests/test_extractor.py -v --tb=short)"
     ]
   }
 }

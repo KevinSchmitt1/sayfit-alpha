@@ -222,3 +222,5 @@ mempalace.yaml
 skills-lock.json
 .claude/commands/
 .claude/plan
+
+tests/tests_checkpoint.md
