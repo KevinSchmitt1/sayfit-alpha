@@ -1,5 +1,3 @@
-import pytest
-
 from step4_output.formatter import _pad, format_output, render_summary, render_table
 
 HIGH_CONF_RESULT = {

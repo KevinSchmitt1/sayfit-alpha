@@ -54,17 +54,20 @@ def db(tmp_path):
 
 
 class TestSaveMeal:
-    def test_returns_meal_id_string(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "i ate a banana", meal_date="2026-01-01")
-        assert isinstance(meal_id, str)
-        assert len(meal_id) > 0
+    def test_returns_meal_id_and_item_ids(self, db):
+        result = db.save_meal("user1", SAMPLE_ITEMS, "i ate a banana", meal_date="2026-01-01")
+        assert isinstance(result, dict)
+        assert isinstance(result["meal_id"], str)
+        assert len(result["meal_id"]) > 0
+        assert isinstance(result["item_ids"], list)
+        assert len(result["item_ids"]) == 1
 
     def test_custom_meal_id_used(self, db):
-        meal_id = db.save_meal(
+        result = db.save_meal(
             "user1", SAMPLE_ITEMS, "i ate a banana",
             meal_date="2026-01-01", meal_id="my-fixed-id"
         )
-        assert meal_id == "my-fixed-id"
+        assert result["meal_id"] == "my-fixed-id"
 
     def test_auto_creates_user(self, db):
         db.save_meal("new_user", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
@@ -139,14 +142,14 @@ class TestCalibration:
 
 class TestDeleteMeal:
     def test_soft_delete_removes_from_daily_totals(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")["meal_id"]
         db.delete_meal(meal_id)
         totals = db.get_daily_totals("user1", "2026-01-01")
         assert totals["meal_count"] == 0
         assert totals["calories"] == 0
 
     def test_other_meals_unaffected_after_delete(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "breakfast", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "breakfast", meal_date="2026-01-01")["meal_id"]
         db.save_meal("user1", SAMPLE_ITEMS, "lunch", meal_date="2026-01-01")
         db.delete_meal(meal_id)
         totals = db.get_daily_totals("user1", "2026-01-01")
@@ -172,7 +175,7 @@ class TestGetMealsForDay:
         assert meals[0]["items"][0]["item_name"] == "banana"
 
     def test_deleted_meal_not_returned(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")["meal_id"]
         db.delete_meal(meal_id)
         meals = db.get_meals_for_day("user1", "2026-01-01")
         assert meals == []
@@ -180,7 +183,7 @@ class TestGetMealsForDay:
 
 class TestDeleteMealItem:
     def test_soft_deletes_single_item(self, db):
-        meal_id = db.save_meal("user1", TWO_ITEMS, "banana and egg", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", TWO_ITEMS, "banana and egg", meal_date="2026-01-01")["meal_id"]
         meals = db.get_meals_for_day("user1", "2026-01-01")
         item_id = meals[0]["items"][0]["item_id"]
         db.delete_meal_item(item_id, meal_id)
@@ -188,7 +191,7 @@ class TestDeleteMealItem:
         assert len(meals[0]["items"]) == 1
 
     def test_meal_totals_recalculated_after_item_delete(self, db):
-        meal_id = db.save_meal("user1", TWO_ITEMS, "banana and egg", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", TWO_ITEMS, "banana and egg", meal_date="2026-01-01")["meal_id"]
         meals = db.get_meals_for_day("user1", "2026-01-01")
         banana_item = next(i for i in meals[0]["items"] if i["item_name"] == "banana")
         db.delete_meal_item(banana_item["item_id"], meal_id)
@@ -196,7 +199,7 @@ class TestDeleteMealItem:
         assert totals["calories"] == pytest.approx(78.0, abs=0.1)
 
     def test_deleting_last_item_soft_deletes_meal(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")["meal_id"]
         meals = db.get_meals_for_day("user1", "2026-01-01")
         item_id = meals[0]["items"][0]["item_id"]
         db.delete_meal_item(item_id, meal_id)
@@ -206,7 +209,7 @@ class TestDeleteMealItem:
 class TestUpdateMealItemGrams:
     def test_scales_calories_proportionally(self, db):
         # banana: 120g, 106.8 kcal → scale to 240g → 213.6 kcal
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")["meal_id"]
         meals = db.get_meals_for_day("user1", "2026-01-01")
         item_id = meals[0]["items"][0]["item_id"]
         db.update_meal_item_grams(item_id, meal_id, 240.0)
@@ -214,7 +217,7 @@ class TestUpdateMealItemGrams:
         assert meals[0]["items"][0]["calories"] == pytest.approx(213.6, abs=0.5)
 
     def test_meal_totals_updated_after_gram_change(self, db):
-        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")
+        meal_id = db.save_meal("user1", SAMPLE_ITEMS, "banana", meal_date="2026-01-01")["meal_id"]
         meals = db.get_meals_for_day("user1", "2026-01-01")
         item_id = meals[0]["items"][0]["item_id"]
         db.update_meal_item_grams(item_id, meal_id, 240.0)
@@ -223,12 +226,15 @@ class TestUpdateMealItemGrams:
 
 
 class TestSavePipelineResult:
-    def test_returns_meal_id(self, db):
-        meal_id = db.save_pipeline_result(
+    def test_returns_meal_id_and_item_ids(self, db):
+        result = db.save_pipeline_result(
             PIPELINE_RERANKED, uid="user1", input_text="apple", meal_date="2026-01-01"
         )
-        assert isinstance(meal_id, str)
-        assert len(meal_id) > 0
+        assert isinstance(result, dict)
+        assert isinstance(result["meal_id"], str)
+        assert len(result["meal_id"]) > 0
+        assert isinstance(result["item_ids"], list)
+        assert len(result["item_ids"]) == 1
 
     def test_nutrition_persisted(self, db):
         db.save_pipeline_result(

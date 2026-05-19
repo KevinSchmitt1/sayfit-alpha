@@ -173,7 +173,7 @@ class SayFitDB:
         meal_date: Optional[str] = None,
         meal_id: Optional[str] = None,
         meal_name: str = "",
-    ) -> str:
+    ) -> dict:
         """
         Save a meal with all its items atomically.
 
@@ -193,7 +193,7 @@ class SayFitDB:
 
         Returns
         -------
-        str : The meal_id
+        dict with keys: meal_id (str), item_ids (list[str])
 
         Raises
         ------
@@ -228,8 +228,10 @@ class SayFitDB:
                 # 3. Insert items and calculate totals
                 total_cal = total_prot = total_fat = total_carbs = 0.0
 
+                item_ids = []
                 for item in items:
                     item_id = str(uuid.uuid4())
+                    item_ids.append(item_id)
                     cal = item.get("calories", 0) or 0
                     prot = item.get("protein", 0) or 0
                     fat = item.get("fat", 0) or 0
@@ -287,7 +289,7 @@ class SayFitDB:
                 print(f"   ❌ DB error: {e}")
                 raise
 
-        return meal_id
+        return {"meal_id": meal_id, "item_ids": item_ids}
 
     def get_daily_totals(self, user_id: str, meal_date: str) -> Dict[str, float]:
         """
@@ -422,7 +424,7 @@ class SayFitDB:
         input_text: str = "",
         meal_date: str = None,
         meal_name: str = "",
-    ) -> str:
+    ) -> dict:
         """
         Convert Step 3 reranker output → database format and save atomically.
 
@@ -439,7 +441,7 @@ class SayFitDB:
 
         Returns
         -------
-        str : The saved meal_id.
+        dict: the saved meal_id and item_ids.
         """
         items = []
         for result in reranked.get("results", []):
