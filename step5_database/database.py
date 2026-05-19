@@ -568,6 +568,46 @@ class SayFitDB:
         print(f"  Meals    : {totals['meal_count']}")
         print("=" * 60)
 
+    def add_meal_item(
+        self,
+        meal_id: str,
+        item_name: str,
+        matched_name: str,
+        amount_grams: float,
+        calories: float,
+        protein: float,
+        fat: float,
+        carbs: float,
+    ) -> str:
+        """Add a single item to an existing meal and refresh meal totals. Returns item_id."""
+        item_id = str(uuid.uuid4())
+        with self.get_connection() as conn:
+            conn.execute("BEGIN TRANSACTION")
+            conn.execute(
+                """
+                INSERT INTO meal_items
+                (item_id, meal_id, item_name, matched_name, amount_grams, unit,
+                 calories, protein, fat, carbs, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'g', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """,
+                (item_id, meal_id, item_name, matched_name, amount_grams,
+                 calories, protein, fat, carbs),
+            )
+            conn.execute(
+                """
+                UPDATE meals SET
+                    total_calories = (SELECT COALESCE(SUM(calories), 0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_protein  = (SELECT COALESCE(SUM(protein),  0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_fat      = (SELECT COALESCE(SUM(fat),      0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    total_carbs    = (SELECT COALESCE(SUM(carbs),    0) FROM meal_items WHERE meal_id = ? AND is_deleted = 0),
+                    updated_at     = CURRENT_TIMESTAMP
+                WHERE meal_id = ?
+                """,
+                (meal_id, meal_id, meal_id, meal_id, meal_id),
+            )
+            conn.commit()
+        return item_id
+
     def delete_meal(self, meal_id: str) -> None:
         """Soft-delete a meal and all its items."""
         with self.get_connection() as conn:

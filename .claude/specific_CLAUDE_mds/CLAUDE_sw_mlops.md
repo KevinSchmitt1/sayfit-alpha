@@ -11,7 +11,7 @@
 |------|------|
 | **FastAPI** | HTTP API layer over the existing pipeline |
 | **Pydantic** | Request/response validation (bundled with FastAPI) |
-| **SQLAlchemy (async)** | DB access — `get_db()` yields one session per request |
+| **sqlite3** | DB access — raw SQLite via `SayFitDB`; `get_db()` returns a singleton instance |
 | **pytest** | Unit + integration tests; 80% coverage target |
 | **Docker** `python:3.13-slim` | API container (voice input excluded — see constraints) |
 | **docker-compose** | Orchestrates api + postgres + langfuse stack |
@@ -132,15 +132,16 @@ Base URL (local): `http://localhost:8000`
 | Method | Path | Body / Params | Description |
 |--------|------|---------------|-------------|
 | `POST` | `/log` | `{ uid, text }` | Run pipeline on text input; returns meal result and `meal_id` immediately |
-| `GET` | `/meals/{uid}/today` | — | All items logged today for this user |
-| `GET` | `/meals/{uid}` | — | Full meal history for this user |
-| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ grams }` | Post-hoc portion correction; recalculates macros |
-| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | Manually add a missed item to an existing meal |
-| `DELETE` | `/meals/{uid}/items/{item_id}` | — | Remove an item from a meal |
+| `GET` | `/meals/{uid}/today` | — | All meals with items logged today for this user |
+| `GET` | `/meals/{uid}` | `?days=N` (default 30) | Daily macro summary (calories, protein, fat, carbs) for the last N days |
+| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ meal_id, grams }` | Post-hoc portion correction; recalculates macros proportionally |
+| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | Manually add a missed item; nutrition looked up via FAISS, top candidate used |
+| `DELETE` | `/meals/{uid}/items/{item_id}` | `?meal_id=<meal_id>` | Remove an item from a meal; recalculates meal totals |
+| `DELETE` | `/meals/{uid}/{meal_id}` | — | Soft-delete a whole meal |
 
 **Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the three mutation endpoints above.
 
-Schemas live in `api/schemas/`. Input is validated by Pydantic at the HTTP boundary; DB queries use SQLAlchemy parameterized queries.
+Schemas live in `api/schemas.py`. Input is validated by Pydantic at the HTTP boundary; DB queries use parameterized sqlite3 statements.
 
 ---
 

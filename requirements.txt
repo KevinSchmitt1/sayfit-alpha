@@ -35,3 +35,8 @@ langfuse>=4.0.0,<5.0.0          # LLM tracing for step1_extraction and step3_rer
 
 ruff
 black
+
+# API
+fastapi>=0.136.0
+uvicorn[standard]>=0.47.0
+httpx>=0.28.0
