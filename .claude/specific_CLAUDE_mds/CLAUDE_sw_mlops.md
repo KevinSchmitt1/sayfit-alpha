@@ -11,10 +11,11 @@
 |------|------|
 | **FastAPI** | HTTP API layer over the existing pipeline |
 | **Pydantic** | Request/response validation (bundled with FastAPI) |
-| **sqlite3** | DB access — raw SQLite via `SayFitDB`; `get_db()` returns a singleton instance |
+| **sqlite3** | Meals DB — OLTP workload (row-level inserts/updates/reads); file-based, no container needed |
+| **DuckDB** | Data pipeline DB only — OLAP workload (large scans over nutrition dataset); owned by data engineer |
 | **pytest** | Unit + integration tests; 80% coverage target |
 | **Docker** `python:3.13-slim` | API container (voice input excluded — see constraints) |
-| **docker-compose** | Orchestrates api + postgres + langfuse stack |
+| **docker-compose** | Two separate files: `docker-compose.yml` (API + Langfuse) · `docker-compose.data.yml` (pipeline, TBD) |
 | **GitHub Actions** | CI: lint + tests on every push and PR |
 | **Langfuse** | LLM call tracing (latency, tokens, errors) — self-hosted via compose |
 | **Prometheus + Grafana** | API-level metrics (request rate, error rate, step durations) |
@@ -123,23 +124,21 @@ tests/
 
 ## API Endpoints
 
-> ⚠️ **REVIEW REQUIRED — depends on data engineer's DB schema**
-> Endpoint paths and operations are stable. Request/response body shapes will change once the
-> data engineer finalizes table structure. Revisit before implementing `api/schemas/`.
-
 Base URL (local): `http://localhost:8000`
 
-| Method | Path | Body / Params | Description |
-|--------|------|---------------|-------------|
-| `POST` | `/log` | `{ uid, text }` | Run pipeline on text input; returns meal result and `meal_id` immediately |
-| `GET` | `/meals/{uid}/today` | — | All meals with items logged today for this user |
-| `GET` | `/meals/{uid}` | `?days=N` (default 30) | Daily macro summary (calories, protein, fat, carbs) for the last N days |
-| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ meal_id, grams }` | Post-hoc portion correction; recalculates macros proportionally |
-| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | Manually add a missed item; nutrition looked up via FAISS, top candidate used |
-| `DELETE` | `/meals/{uid}/items/{item_id}` | `?meal_id=<meal_id>` | Remove an item from a meal; recalculates meal totals |
-| `DELETE` | `/meals/{uid}/{meal_id}` | — | Soft-delete a whole meal |
+| Method | Path | Body / Params | Response | Description |
+|--------|------|---------------|----------|-------------|
+| `POST` | `/log` | `{ uid, text }` | `Meal` (201) | Run pipeline on text input; returns structured meal with item UUIDs |
+| `GET` | `/meals/{uid}/today` | — | `list[Meal]` (200) | All meals with full item detail logged today |
+| `GET` | `/meals/{uid}` | `?days=N` (default 30) | `MealHistory` (200) | Daily macro summary for the last N days |
+| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ meal_id, grams }` | 204 | Rescale item portion; macros recalculated proportionally |
+| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | `FoodItem` (201) | Add a missed item; nutrition resolved via FAISS top candidate |
+| `DELETE` | `/meals/{uid}/items/{item_id}` | `?meal_id=<meal_id>` | 204 | Soft-delete item; recalculates meal totals |
+| `DELETE` | `/meals/{uid}/{meal_id}` | — | 204 | Soft-delete a whole meal and all its items |
 
-**Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the three mutation endpoints above.
+**Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the four mutation endpoints above.
+
+**Mutation pattern:** PATCH and DELETE endpoints return 204 No Content. Callers should follow up with `GET /meals/{uid}/today` to refresh state.
 
 Schemas live in `api/schemas.py`. Input is validated by Pydantic at the HTTP boundary; DB queries use parameterized sqlite3 statements.
 
@@ -147,20 +146,25 @@ Schemas live in `api/schemas.py`. Input is validated by Pydantic at the HTTP bou
 
 ## Docker Topology
 
-> ⚠️ **REVIEW REQUIRED — depends on data engineer's DB decision (DuckDB vs Postgres)**
-> If DuckDB is chosen, the postgres service below is app-only. If Postgres is chosen for both,
-> the data pipeline may share this container or need its own. Revisit once that decision is locked.
+**Two separate compose files** — API stack and data pipeline are decoupled by design.
+
+| File | Purpose | Cadence |
+|------|---------|---------|
+| `docker-compose.yml` | API + Langfuse — always-on runtime services | Production / local dev |
+| `docker-compose.data.yml` | Data pipeline — dbt + Prefect + DuckDB (TBD) | Occasional rebuild runs (weekly/monthly) |
+
+**Rationale:** The data pipeline is a *build-time* concern — it runs occasionally to rebuild the FAISS index and nutrition database. The API is a *runtime* concern — it runs continuously to serve requests. Coupling them in one compose file would mean running a full orchestration stack 24/7 for a job that fires once a month.
+
+**Handoff:** The pipeline writes the FAISS index and `combined_final.csv` to a shared volume. The API mounts that volume read-only.
+
+### `docker-compose.yml` — API stack
 
 ```
 api              python:3.13-slim
-                 depends_on: postgres (healthy), langfuse-web (started)
-                 mounts: data/faiss_index (read-only)
-                 env: DATABASE_URL, OPENAI_API_KEY, LANGFUSE_HOST,
+                 depends_on: langfuse-web (started)
+                 mounts: data/faiss_index (read-only), data/sayfit_meals.db
+                 env: OPENAI_API_KEY, LANGFUSE_HOST,
                       LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
-
-postgres         postgres:16-alpine
-                 volume: postgres_data (survives compose down)
-                 healthcheck: pg_isready -U sayfit
 
 langfuse-web     official Langfuse self-hosted image
                  + langfuse-worker, clickhouse, minio, redis
@@ -169,9 +173,12 @@ prometheus       scrapes FastAPI /metrics                  (Week 3)
 grafana          dashboard over prometheus data            (Week 3)
 ```
 
-**Connection string pattern:** `postgresql+psycopg://sayfit:${DB_PASSWORD}@postgres:5432/sayfit`
+**Note:** No Postgres container. Meals DB is SQLite — file-based, mounted as a volume, no server process needed.
 
-The same `DATABASE_URL` env var is used locally, in compose, and in CI — no code path changes between environments.
+### `docker-compose.data.yml` — Data pipeline
+
+> ⚠️ **TBD — pending data engineer.** Architecture to be defined once data engineer begins work.
+> Will use dbt + Prefect + DuckDB. Will write FAISS index and nutrition DB to the shared volume the API reads from.
 
 ---
 
@@ -234,9 +241,9 @@ All credentials go through env vars validated at startup. `.env.example` documen
 | Variable | Required from | Purpose |
 |----------|--------------|---------|
 | `OPENAI_API_KEY` | Day 1 | LLM calls (Groq-compatible client) |
-| `DB_PASSWORD` | Week 2 | Postgres container |
 | `LANGFUSE_PUBLIC_KEY` | Week 3 | Langfuse SDK |
 | `LANGFUSE_SECRET_KEY` | Week 3 | Langfuse SDK |
+| `LANGFUSE_HOST` | Week 3 | Langfuse self-hosted URL (e.g. `http://langfuse-web:3000`) |
 | `LANGFUSE_ENABLED` | Week 3 | Set `false` in CI to disable SDK |
 
 ---

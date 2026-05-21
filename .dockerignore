@@ -1,0 +1,46 @@
+# Secrets — injected at runtime via docker-compose env_file
+.env
+.env.example
+
+# Data — mounted as volumes at runtime, not baked into the image
+data/
+
+# Voice input — excluded per hard constraint (PortAudio/FAISS conflict)
+step0_voice_input/
+
+# Large data archives — not needed at runtime (~103 MB total)
+*.zip
+
+# Virtual environment — pip install handles deps inside the container
+.venv/
+
+# Python bytecode caches — noise, rebuilt automatically
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# Dev tooling — no place in a production image
+.claude/
+.git/
+.github/
+mempalace.yaml
+skills-lock.json
+.python-version
+.DS_Store
+
+# Analysis and notebooks — development only
+eda.ipynb
+analyze_tests.py
+
+# Tests and fixtures — run in CI, not in the container
+tests/
+input_tests/
+inputs/
+outputs/
+
+# Documentation
+*.md
+structure.md
+bugs.md
