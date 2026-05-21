@@ -100,6 +100,18 @@ def is_local() -> bool:
     return _use_local
 
 
+# ── Langfuse Prompt Management ───────────────────────────────────────────────
+
+from langfuse import get_client as _lf_get_client  # noqa: E402
+
+
+def get_prompt(name: str, fallback: str) -> str:
+    """Fetch prompt from Langfuse Prompt Management; fall back to hardcoded string if unavailable."""
+    try:
+        return _lf_get_client().get_prompt(name, fallback=fallback).compile()
+    except Exception:
+        return fallback
+
 
 """
 

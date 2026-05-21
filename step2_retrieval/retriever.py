@@ -21,6 +21,7 @@ import faiss
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer
+from langfuse import observe, get_client as _lf_get_client
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
@@ -184,6 +185,7 @@ def _compute_name_penalty(query_core: str, candidate_name: str) -> float:
     return 0.55
 
 
+@observe(name="step2_retrieval")
 def retrieve(
     queries: list[str],
     top_k: int | None = None,
@@ -368,6 +370,17 @@ def retrieve(
         })
 
     _log(f"   ✅ Retrieved candidates for {len(queries)} queries.")
+    _lf_get_client().update_current_span(
+        input={"queries": queries, "top_k": top_k or config.TOP_K_CANDIDATES},
+        output={
+            "queries_processed": len(results["items"]),
+            "candidates_per_query": [len(item["candidates"]) for item in results["items"]],
+            "top_scores": [
+                round(item["candidates"][0]["adjusted_score"], 3) if item["candidates"] else 0
+                for item in results["items"]
+            ],
+        },
+    )
     return results
 
 

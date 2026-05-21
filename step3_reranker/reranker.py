@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from langfuse import observe
+from langfuse import observe, get_client as _lf_get_client
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
@@ -158,7 +158,7 @@ def rerank_single_item(
         model=llm_client.reasoning_model(),
         temperature=config.REASONING_TEMPERATURE,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": llm_client.get_prompt("sayfit-reranker", SYSTEM_PROMPT)},
             {"role": "user", "content": user_msg},
         ],
         response_format={"type": "json_object"},
@@ -170,6 +170,16 @@ def rerank_single_item(
         if raw.startswith("json"):
             raw = raw[4:]
     result = json.loads(raw)
+
+    _lf_get_client().update_current_span(
+        input={"item_name": item_name, "num_candidates": len(candidates), "description": description},
+        output={
+            "matched_name": result.get("matched_name"),
+            "confidence": result.get("confidence"),
+            "amount_grams": result.get("amount_grams"),
+        },
+        metadata={"model": llm_client.reasoning_model()},
+    )
 
     # attach date_time from extraction
     result["date_time"] = extracted_item.get("date_time", "")
