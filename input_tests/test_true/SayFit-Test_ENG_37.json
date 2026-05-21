@@ -1,0 +1,5 @@
+{
+  "text": "uh I had three and a half pancakes with some maple syrup and like two strips of bacon maybe three",
+  "date": "2026-05-03T09:00:00Z",
+  "_comment": "FRACTIONAL + HEDGED QUANTITIES: 'three and a half' must parse to quantity_parsed=3.5. 'some maple syrup' has no numeric quantity. 'two strips... maybe three' is a spoken hedge — Step 1 should pick a reasonable value (2 or 3) rather than erroring. Tests fractional spoken quantities and graceful handling of uncertain corrections at end of utterance."
+}

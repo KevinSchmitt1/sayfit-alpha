@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-from langfuse import observe
+from langfuse import observe, get_client as _lf_get_client
 
 # allow running from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -189,7 +189,13 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
     dict with keys "items" and "queries", enriched with date_time per item.
     """
     if not use_llm:
-        return extract_items_heuristic(text, date_time=date_time, uid=uid)
+        result = extract_items_heuristic(text, date_time=date_time, uid=uid)
+        _lf_get_client().update_current_span(
+            input={"text": text, "uid": uid},
+            output={"items_count": len(result.get("items", {})), "queries": result.get("queries", [])},
+            metadata={"use_llm": False, "model": "heuristic"},
+        )
+        return result
 
     _log("\n🔍 [Step 1] Extracting food items from text …")
     _log(f"   Input text: \"{text}\"")
@@ -198,7 +204,7 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
         model=llm_client.extraction_model(),
         temperature=config.EXTRACTION_TEMPERATURE,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": llm_client.get_prompt("sayfit-extraction", SYSTEM_PROMPT)},
             {"role": "user", "content": text},
         ],
         response_format={"type": "json_object"},
@@ -227,6 +233,11 @@ def extract_items(text: str, date_time: str = "", uid: str = "", use_llm: bool =
 
     n = len(result.get("items", {}))
     _log(f"   ✅ Extracted {n} item(s): {result.get('queries', [])}")
+    _lf_get_client().update_current_span(
+        input={"text": text, "uid": uid},
+        output={"items_count": n, "queries": result.get("queries", [])},
+        metadata={"use_llm": True, "model": llm_client.extraction_model()},
+    )
     return result
 
 

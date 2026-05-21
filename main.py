@@ -26,7 +26,8 @@ import json
 import sys
 import threading
 import time
-from langfuse import observe
+from langfuse import observe, get_client as _lf_get_client
+from opentelemetry import trace as _otel_trace
 from datetime import datetime
 from pathlib import Path
 
@@ -164,6 +165,15 @@ def run_pipeline(
 
     Returns the final reranker output dict.
     """
+    _otel_trace.get_current_span().set_attribute("user.id", uid)
+    _lf_get_client().update_current_span(
+        metadata={
+            "use_llm": use_llm,
+            "model_backend": "ollama" if llm_client.is_local() else ("openai" if llm_client._use_openai else "groq"),
+            "input_length": len(text),
+        },
+    )
+
     run_dir = _make_run_dir(parent=run_parent, name=run_name)
     if config.DEV_MODE:
         print(f"   📁 Run output: {run_dir}")

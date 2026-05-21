@@ -1,0 +1,5 @@
+{
+  "text": "this morning I had two eggs and toast and for lunch I grabbed a turkey sandwich and then I had an apple as a snack",
+  "date": "2026-05-02T19:00:00Z",
+  "_comment": "RUN-ON MULTI-MEAL: No punctuation, three meals described in one breath. Step 1 must extract 5 items: egg (x2), toast, turkey sandwich, apple — and ignore the temporal connectors ('this morning', 'for lunch', 'as a snack') which are not food items. Tests segmentation when the speaker describes an entire day without pauses or commas."
+}

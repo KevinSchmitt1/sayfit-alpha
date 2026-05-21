@@ -1,0 +1,5 @@
+{
+  "text": "grabbed a couple handfuls of them Doritos and like a can of Coke at the movie theater",
+  "date": "2026-05-02T20:30:00Z",
+  "_comment": "COLLOQUIAL + BRAND NAMES: Informal phrasing 'a couple handfuls of them Doritos' and 'a can of Coke'. Step 1 must preserve brand names (Doritos, Coke) as-is per the brand-name rule, parse quantity 'couple handfuls' reasonably, and map to snacks + beverages. 'at the movie theater' is context noise, not a food. Tests casual spoken grammar where 'them' is used as a demonstrative ('them Doritos')."
+}
