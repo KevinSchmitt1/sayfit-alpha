@@ -222,3 +222,4 @@ mempalace.yaml
 skills-lock.json
 .claude/commands/
 .claude/plan
+.claude/worktrees/
