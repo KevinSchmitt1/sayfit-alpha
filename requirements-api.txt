@@ -1,0 +1,23 @@
+# SayFit Alpha — API container dependencies
+# Excludes voice input (sounddevice, openai-whisper, scipy) and dev tools (ruff, black)
+# those are CLI-only or CI-only concerns.
+
+# --- Core pipeline ---
+openai>=1.10.0
+python-dotenv>=1.0.0
+
+# --- Retrieval / RAG ---
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.0
+
+# --- Data handling ---
+pandas>=2.0.0
+numpy>=1.23.0
+
+# --- Observability ---
+langfuse>=4.0.0,<5.0.0
+
+# --- API ---
+fastapi>=0.136.0
+uvicorn[standard]>=0.47.0
+httpx>=0.28.0

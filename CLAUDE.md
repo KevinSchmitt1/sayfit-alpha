@@ -20,12 +20,13 @@ The system will eventually be accessible via a REST API and a web frontend.
 These are the only things that are actually built and working:
 
 - **Pipeline steps 0–5** in `step0_voice_input/` through `step5_database/` — the core pipeline runs end-to-end via `python main.py`
+- **FastAPI layer** — `api/main.py` + `api/schemas.py`, all 7 endpoints implemented and tested: `POST /log`, `GET /meals/{uid}/today`, `GET /meals/{uid}`, `PATCH /meals/{uid}/items/{item_id}`, `POST /meals/{uid}/items`, `DELETE /meals/{uid}/items/{item_id}`, `DELETE /meals/{uid}/{meal_id}`. Start with `PYTHONPATH=. uvicorn api.main:app --reload`.
 - **CI** — `.github/workflows/ci.yml` runs `ruff check` + `pytest` on every push
-- **Basic tests** — `tests/conftest.py` (retriever mock) + `tests/test_smoke.py`
+- **Unit tests** — `tests/unit/` covering pipeline steps, database layer, and formatter
 - **SQLite database** — `data/sayfit_meals.db` via `step5_database/database.py`
 - **FAISS index** — built from `data/combined_final.csv`, rebuilt via `python main.py --build-index`
 
-Everything else — the API, the frontend, Docker, Langfuse, Prometheus, the data pipeline, the recipe module — is planned but does not exist yet.
+Everything else — the frontend, Docker, Langfuse, Prometheus, the data pipeline, the recipe module — is planned but does not exist yet.
 
 ---
 
@@ -33,8 +34,8 @@ Everything else — the API, the frontend, Docker, Langfuse, Prometheus, the dat
 
 The team is building toward this target state, in rough order:
 
-1. **FastAPI layer** wrapping the existing pipeline (Kevin)
-2. **Docker + docker-compose** packaging the API + database (Kevin)
+1. ~~**FastAPI layer** wrapping the existing pipeline (Kevin)~~ ✅ Done
+2. **Docker + docker-compose** packaging the API + database (Kevin) ← active
 3. **Next.js frontend** consuming the API (ML engineer)
 4. **LLM observability** via Langfuse (Kevin)
 5. **Recipe suggestions** as a new pipeline step (recipe module)
@@ -78,10 +79,9 @@ These decisions are open. If your work depends on one of them, raise it with the
 
 | Decision | Why it matters |
 |----------|---------------|
-| SQLite vs Postgres for the meals database | Affects API design, Docker topology, test strategy |
-| DuckDB vs Postgres for the data pipeline | Affects whether data eng shares Kevin's DB container |
+| SQLite vs Postgres for the meals database | **Decided: SQLite stays** — OLTP workload, file-based, no container needed |
+| DuckDB vs Postgres for the data pipeline | **Decided: DuckDB** — OLAP workload, owned by data engineer, separate compose file |
 | Langfuse self-hosted vs cloud | Affects docker-compose complexity |
-| API endpoint paths and response shapes | Kevin and ML engineer must agree before frontend consumes them |
 | SSE vs request-response for pipeline runs | Affects how the frontend and API are wired together |
 | Recipe API endpoints | Needed before frontend can surface recipes |
 | FAISS index rebuild trigger | When data pipeline produces a new CSV, who rebuilds the index? |
@@ -107,7 +107,7 @@ Each team member maintains their own section document:
 
 | File | Covers |
 |------|--------|
-| `.claude/plan/CLAUDE_sw_mlops.md` | API, Docker, CI/CD, testing, observability (Kevin) |
+| `.claude/specific_CLAUDE_mds/CLAUDE_sw_mlops.md` | API, Docker, CI/CD, testing, observability (Kevin) |
 | `.claude/CLAUDE_ml_eng.md` | ML components, frontend (ML engineer) |
 | `.claude/CLAUDE_data_engineering.md` | Data pipeline, storage, versioning (data engineer) |
 | `.claude/CLAUDE_Recipe_Suggestions.md` | Recipe suggestion layer (recipe module) |

@@ -11,10 +11,11 @@
 |------|------|
 | **FastAPI** | HTTP API layer over the existing pipeline |
 | **Pydantic** | Request/response validation (bundled with FastAPI) |
-| **SQLAlchemy (async)** | DB access — `get_db()` yields one session per request |
+| **sqlite3** | Meals DB — OLTP workload (row-level inserts/updates/reads); file-based, no container needed |
+| **DuckDB** | Data pipeline DB only — OLAP workload (large scans over nutrition dataset); owned by data engineer |
 | **pytest** | Unit + integration tests; 80% coverage target |
 | **Docker** `python:3.13-slim` | API container (voice input excluded — see constraints) |
-| **docker-compose** | Orchestrates api + postgres + langfuse stack |
+| **docker-compose** | Two separate files: `docker-compose.yml` (API + Langfuse) · `docker-compose.data.yml` (pipeline, TBD) |
 | **GitHub Actions** | CI: lint + tests on every push and PR |
 | **Langfuse** | LLM call tracing (latency, tokens, errors) — self-hosted via compose |
 | **Prometheus + Grafana** | API-level metrics (request rate, error rate, step durations) |
@@ -33,8 +34,10 @@ python main.py --no-llm         # heuristic mode, no API keys needed
 
 **Tests:**
 ```bash
-pytest tests/ -q                          # fast — retriever is mocked
-pytest tests/ --cov=. --cov-report=term-missing   # with coverage
+pytest tests/unit/ -q                              # fast — retriever is mocked
+pytest tests/unit/ -m llm_path -q                 # production path only
+pytest tests/unit/ -m heuristic -q                # fallback path only
+pytest tests/unit/ --cov=. --cov-report=term-missing   # with coverage
 ```
 
 **Full stack (API + DB + Langfuse):**
@@ -50,7 +53,7 @@ Runs on every push and every PR targeting `main`.
 
 **Current steps:**
 1. `ruff check .` — syntax and lint
-2. `pytest tests/ -q` — test suite (retriever mocked, no FAISS loaded)
+2. `pytest tests/unit/ -q` — unit test suite (retriever mocked, no FAISS loaded)
 
 **Required GitHub secret:** `OPENAI_API_KEY` (prevents KeyError if any test touches the LLM path)
 
@@ -63,27 +66,57 @@ Runs on every push and every PR targeting `main`.
 
 ## Testing
 
-**Structure:**
+**Folder layout:**
+
+```
+tests/
+  unit/               ← CI runs this; all current tests live here
+    conftest.py       ← autouse fixture: patches retriever with fake candidates
+    test_smoke.py
+    test_extractor.py
+    test_database.py
+    test_formatter.py
+    test_reranker.py
+    test_retriever_scoring.py
+  integration/        ← not yet written; real API calls, not run in CI by default
+```
+
+**pytest marks** (registered in `pyproject.toml`):
+
+| Mark | What | When to run |
+|------|------|-------------|
+| `heuristic` | Rule-based fallback path internals (`_clean_segment`, `_parse_quantity`, `extract_items_heuristic`) | Always — fast, no mocks needed |
+| `llm_path` | Production LLM path — client mocked, wiring and parsing tested | Always — no real API calls |
+| `integration` | _(future)_ Real API calls, prompt quality, schema compliance | Pre-release or nightly — costs money |
+
+**Unit test files:**
 
 | File | What it tests |
 |------|--------------|
-| `tests/conftest.py` | autouse fixture: patches `step2_retrieval.retriever.retrieve` with fake candidates |
-| `tests/test_smoke.py` | `extract_items()` returns expected shape (`items` + `queries` keys) |
-| `tests/test_extraction.py` | _(planned)_ unit tests for `extract_items()` using `use_llm=False` |
-| `tests/test_retriever_scoring.py` | _(planned)_ unit tests for pure scoring helpers: `_extract_core_name`, `_compute_name_penalty`, `_build_query_variants`, `_safe_float` — no FAISS, no mocks needed |
-| `tests/test_ontology_filter.py` | _(planned)_ unit tests for `apply_ontology_filter()` |
-| `tests/test_reranker.py` | _(planned)_ unit tests for `rerank_single_item_heuristic()` |
-| `tests/test_api.py` | _(planned)_ FastAPI integration tests via `httpx.AsyncClient` |
-| `tests/test_integration.py` | _(planned)_ full `run_pipeline()` end-to-end |
+| `unit/conftest.py` | autouse fixture: patches `step2_retrieval.retriever.retrieve` with fake candidates — scoped to `unit/` so it won't bleed into future integration tests |
+| `unit/test_smoke.py` | `extract_items()` returns expected shape (`items` + `queries` keys) |
+| `unit/test_extractor.py` | `@pytest.mark.heuristic`: `_clean_segment`, `_parse_quantity`, `extract_items_heuristic`; `@pytest.mark.llm_path`: JSON parsing, list→dict normalization, metadata attachment, markdown-fenced responses, malformed JSON behavior, voice noise handling |
+| `unit/test_retriever_scoring.py` | Pure scoring helpers: `_extract_core_name`, `_compute_name_penalty`, `_build_query_variants`, `_safe_float` — no FAISS, no mocks needed |
+| `unit/test_reranker.py` | `rerank_single_item_heuristic()` |
+| `unit/test_database.py` | DB layer |
+| `unit/test_formatter.py` | Formatter step |
+
+**Planned (not yet written):**
+
+| File | What it will test |
+|------|------------------|
+| `unit/test_api.py` | FastAPI endpoints via `httpx.AsyncClient` |
+| `integration/test_extractor_llm.py` | Real Groq API call — prompt quality, schema compliance, voice noise correction |
+| `integration/test_pipeline.py` | Full `run_pipeline()` end-to-end |
 
 > ⚠️ **REVIEW REQUIRED — test DB strategy not yet decided**
 > API and integration tests require a database. Strategy (testcontainers-python vs GitHub Actions
 > `services: postgres`) depends on whether the data engineer delivers a Docker image. Revisit
-> before writing `test_api.py` or `test_integration.py`.
+> before writing `test_api.py` or `integration/test_pipeline.py`.
 
-**Two rules that apply to all tests:**
-1. The retriever autouse mock in `conftest.py` is always active — `_load_resources()` (sentence-transformers + FAISS index) is never called during any test run.
-2. Unit tests for extraction use `use_llm=False` — the heuristic path requires no LLM call or mock.
+**Rules that apply to all unit tests:**
+1. The retriever autouse mock in `unit/conftest.py` is always active — `_load_resources()` (sentence-transformers + FAISS index) is never called during any unit test run.
+2. LLM-path tests mock the client — no real API calls, no cost. Real prompt quality testing belongs in `tests/integration/`.
 
 **Input fixtures:** `input_tests/SayFit-Test_ENG_01.json` … `_29.json` — 29 real test cases usable as payload fixtures.
 
@@ -91,43 +124,47 @@ Runs on every push and every PR targeting `main`.
 
 ## API Endpoints
 
-> ⚠️ **REVIEW REQUIRED — depends on data engineer's DB schema**
-> Endpoint paths and operations are stable. Request/response body shapes will change once the
-> data engineer finalizes table structure. Revisit before implementing `api/schemas/`.
-
 Base URL (local): `http://localhost:8000`
 
-| Method | Path | Body / Params | Description |
-|--------|------|---------------|-------------|
-| `POST` | `/log` | `{ uid, text }` | Run pipeline on text input; returns meal result and `meal_id` immediately |
-| `GET` | `/meals/{uid}/today` | — | All items logged today for this user |
-| `GET` | `/meals/{uid}` | — | Full meal history for this user |
-| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ grams }` | Post-hoc portion correction; recalculates macros |
-| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | Manually add a missed item to an existing meal |
-| `DELETE` | `/meals/{uid}/items/{item_id}` | — | Remove an item from a meal |
+| Method | Path | Body / Params | Response | Description |
+|--------|------|---------------|----------|-------------|
+| `POST` | `/log` | `{ uid, text }` | `Meal` (201) | Run pipeline on text input; returns structured meal with item UUIDs |
+| `GET` | `/meals/{uid}/today` | — | `list[Meal]` (200) | All meals with full item detail logged today |
+| `GET` | `/meals/{uid}` | `?days=N` (default 30) | `MealHistory` (200) | Daily macro summary for the last N days |
+| `PATCH` | `/meals/{uid}/items/{item_id}` | `{ meal_id, grams }` | 204 | Rescale item portion; macros recalculated proportionally |
+| `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | `FoodItem` (201) | Add a missed item; nutrition resolved via FAISS top candidate |
+| `DELETE` | `/meals/{uid}/items/{item_id}` | `?meal_id=<meal_id>` | 204 | Soft-delete item; recalculates meal totals |
+| `DELETE` | `/meals/{uid}/{meal_id}` | — | 204 | Soft-delete a whole meal and all its items |
 
-**Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the three mutation endpoints above.
+**Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the four mutation endpoints above.
 
-Schemas live in `api/schemas/`. Input is validated by Pydantic at the HTTP boundary; DB queries use SQLAlchemy parameterized queries.
+**Mutation pattern:** PATCH and DELETE endpoints return 204 No Content. Callers should follow up with `GET /meals/{uid}/today` to refresh state.
+
+Schemas live in `api/schemas.py`. Input is validated by Pydantic at the HTTP boundary; DB queries use parameterized sqlite3 statements.
 
 ---
 
 ## Docker Topology
 
-> ⚠️ **REVIEW REQUIRED — depends on data engineer's DB decision (DuckDB vs Postgres)**
-> If DuckDB is chosen, the postgres service below is app-only. If Postgres is chosen for both,
-> the data pipeline may share this container or need its own. Revisit once that decision is locked.
+**Two separate compose files** — API stack and data pipeline are decoupled by design.
+
+| File | Purpose | Cadence |
+|------|---------|---------|
+| `docker-compose.yml` | API + Langfuse — always-on runtime services | Production / local dev |
+| `docker-compose.data.yml` | Data pipeline — dbt + Prefect + DuckDB (TBD) | Occasional rebuild runs (weekly/monthly) |
+
+**Rationale:** The data pipeline is a *build-time* concern — it runs occasionally to rebuild the FAISS index and nutrition database. The API is a *runtime* concern — it runs continuously to serve requests. Coupling them in one compose file would mean running a full orchestration stack 24/7 for a job that fires once a month.
+
+**Handoff:** The pipeline writes the FAISS index and `combined_final.csv` to a shared volume. The API mounts that volume read-only.
+
+### `docker-compose.yml` — API stack
 
 ```
 api              python:3.13-slim
-                 depends_on: postgres (healthy), langfuse-web (started)
-                 mounts: data/faiss_index (read-only)
-                 env: DATABASE_URL, OPENAI_API_KEY, LANGFUSE_HOST,
+                 depends_on: langfuse-web (started)
+                 mounts: data/faiss_index (read-only), data/sayfit_meals.db
+                 env: OPENAI_API_KEY, LANGFUSE_HOST,
                       LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY
-
-postgres         postgres:16-alpine
-                 volume: postgres_data (survives compose down)
-                 healthcheck: pg_isready -U sayfit
 
 langfuse-web     official Langfuse self-hosted image
                  + langfuse-worker, clickhouse, minio, redis
@@ -136,9 +173,12 @@ prometheus       scrapes FastAPI /metrics                  (Week 3)
 grafana          dashboard over prometheus data            (Week 3)
 ```
 
-**Connection string pattern:** `postgresql+psycopg://sayfit:${DB_PASSWORD}@postgres:5432/sayfit`
+**Note:** No Postgres container. Meals DB is SQLite — file-based, mounted as a volume, no server process needed.
 
-The same `DATABASE_URL` env var is used locally, in compose, and in CI — no code path changes between environments.
+### `docker-compose.data.yml` — Data pipeline
+
+> ⚠️ **TBD — pending data engineer.** Architecture to be defined once data engineer begins work.
+> Will use dbt + Prefect + DuckDB. Will write FAISS index and nutrition DB to the shared volume the API reads from.
 
 ---
 
@@ -201,9 +241,9 @@ All credentials go through env vars validated at startup. `.env.example` documen
 | Variable | Required from | Purpose |
 |----------|--------------|---------|
 | `OPENAI_API_KEY` | Day 1 | LLM calls (Groq-compatible client) |
-| `DB_PASSWORD` | Week 2 | Postgres container |
 | `LANGFUSE_PUBLIC_KEY` | Week 3 | Langfuse SDK |
 | `LANGFUSE_SECRET_KEY` | Week 3 | Langfuse SDK |
+| `LANGFUSE_HOST` | Week 3 | Langfuse self-hosted URL (e.g. `http://langfuse-web:3000`) |
 | `LANGFUSE_ENABLED` | Week 3 | Set `false` in CI to disable SDK |
 
 ---
