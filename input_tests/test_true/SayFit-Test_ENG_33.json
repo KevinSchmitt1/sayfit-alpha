@@ -1,0 +1,5 @@
+{
+  "text": "I ate a peace of chocolate cake and had a glass of whole mill",
+  "date": "2026-05-02T15:00:00Z",
+  "_comment": "HOMOPHONE ERRORS: Two classic voice-to-text homophones: 'piece' transcribed as 'peace', 'milk' transcribed as 'mill'. Step 1 LLM must apply its correction rule and recover 'piece of chocolate cake' and 'whole milk'. Tests whether the LLM can resolve near-phonetic substitutions using food context — 'peace of cake' is nonsensical, 'whole mill' is ambiguous."
+}

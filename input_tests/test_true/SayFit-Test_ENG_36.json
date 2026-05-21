@@ -1,0 +1,5 @@
+{
+  "text": "I was gonna have the burger but ended up just getting the grilled salmon with a side salad and a water",
+  "date": "2026-05-03T13:00:00Z",
+  "_comment": "COUNTERFACTUAL DISTRACTOR: 'burger' is explicitly mentioned as NOT eaten ('was gonna have... but'). Step 1 LLM must exclude 'burger' and extract only the 3 items actually consumed: grilled salmon, side salad, water. Mirrors the 'instead of butter' test (ENG_28) but with a spoken counterfactual framing that is more natural in voice input ('was gonna have X but got Y')."
+}

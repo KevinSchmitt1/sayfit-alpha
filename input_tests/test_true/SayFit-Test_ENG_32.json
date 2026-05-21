@@ -1,0 +1,5 @@
+{
+  "text": "I had like a keenwa salad for lunch with some feta cheese and cucumber",
+  "date": "2026-05-01T12:45:00Z",
+  "_comment": "PHONETIC TRANSCRIPTION: 'quinoa' spoken and transcribed as 'keenwa' — how many English speakers actually pronounce it, rendered phonetically by voice-to-text. Step 1 LLM must recognise 'keenwa' as 'quinoa' per its correction rule. Also tests 3-item extraction: quinoa salad + feta cheese + cucumber. Step 3 must then route 'quinoa (salad)' toward grains, 'feta' toward dairy, 'cucumber' toward vegetables."
+}

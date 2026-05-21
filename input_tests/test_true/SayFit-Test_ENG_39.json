@@ -1,0 +1,5 @@
+{
+  "text": "I think I had some kind of pasta I'm not totally sure what type it was and some kind of tomato sauce with ground meat in it and I think some bread on the side",
+  "date": "2026-05-04T19:30:00Z",
+  "_comment": "HEAVY UNCERTAINTY MARKERS: 'I think', 'not totally sure', 'some kind of' appear four times. Step 1 must strip the hedging and extract meaningful food items: pasta (unspecified), a composite meat sauce (tomato sauce + ground meat → treat as one bolognese-style item or two items), and bread. Tests whether uncertainty language causes items to be skipped or the LLM to refuse extraction. Step 3 must then handle 'pasta (unspecified)' and 'meat sauce' retrieval without precise category signals."
+}

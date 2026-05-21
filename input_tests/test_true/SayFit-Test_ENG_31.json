@@ -1,0 +1,5 @@
+{
+  "text": "I had a chicken breast no wait I mean a grilled chicken thigh and some steamed broccoli",
+  "date": "2026-05-01T12:15:00Z",
+  "_comment": "SELF-CORRECTION: Speaker starts with 'chicken breast', then mid-sentence corrects to 'grilled chicken thigh'. Step 1 LLM must resolve the correction and log only 'grilled chicken thigh', not 'chicken breast'. 'no wait I mean' is the spoken correction marker. Classic voice-to-text mid-sentence revision — tests whether the LLM picks the final intended food, not the abandoned one."
+}

@@ -1,0 +1,5 @@
+{
+  "text": "um so I had like a big bowl of oatmeal this morning with uh some blueberries on top",
+  "date": "2026-05-01T08:30:00Z",
+  "_comment": "SPOKEN FILLER: Heavy filler words ('um', 'so', 'like', 'uh') wrapping a simple 2-item meal. Step 1 LLM must strip filler and extract 'oatmeal' + 'blueberry'. 'big bowl' should map to unit_hint 'bowl'. Baseline test for filler-word robustness — if the LLM can't handle this it will fail all harder spoken inputs."
+}

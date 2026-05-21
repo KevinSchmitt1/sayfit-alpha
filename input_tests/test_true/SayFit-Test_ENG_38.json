@@ -1,0 +1,5 @@
+{
+  "text": "we shared some tapas at dinner you know like patatas bravas and some jamón and a glass of red wine",
+  "date": "2026-05-03T20:00:00Z",
+  "_comment": "FOREIGN FOOD NAMES IN CASUAL SPEECH: Spanish dishes spoken naturally inside an English sentence. 'patatas bravas' (fried potato dish) and 'jamón' (cured/dried ham) must be preserved as-is per brand/regional food rule. 'you know like' is filler. 'we shared' sets context but does not negate consumption. Step 3 must map 'jamón' to cured pork / dried meat in the database and correctly route red wine to beverages, not vinegar or condiments."
+}
