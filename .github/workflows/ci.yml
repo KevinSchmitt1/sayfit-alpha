@@ -24,8 +24,18 @@ jobs:
       - name: Lint
         run: ruff check . --exclude eda.ipynb
 
-      - name: Test
+      - name: Unit test
         run: pytest tests/unit/ -q
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PYTHONPATH: .
+      
+      - name: Integration test
+        run: pytest tests/integration/test_extractor_llm.py -q
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PYTHONPATH: .
+      
+      - name: Docker build smoke test
+        run: docker build .
+          

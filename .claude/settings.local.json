@@ -4,7 +4,21 @@
       "Skill(mempalace:mempalace)",
       "Bash(python -m pytest --version)",
       "Bash(.venv/bin/python -m pytest tests/test_reranker.py tests/test_formatter.py tests/test_database.py tests/test_extractor.py -v)",
-      "Bash(.venv/bin/python -m pytest tests/test_reranker.py tests/test_formatter.py tests/test_database.py tests/test_extractor.py -v --tb=short)"
+      "Bash(.venv/bin/python -m pytest tests/test_reranker.py tests/test_formatter.py tests/test_database.py tests/test_extractor.py -v --tb=short)",
+      "Read(//Users/kevin/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(pip3 install *)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
+      "Bash(ls /opt/homebrew/lib/node_modules/ | grep docx)",
+      "Bash(mempalace repair *)",
+      "Bash(mempalace migrate *)",
+      "Bash(rm -rf ~/.mempalace/palace/)",
+      "Bash(rm -f ~/.mempalace/locks/*.lock)",
+      "Bash(mempalace mine *)",
+      "Bash(mempalace status *)",
+      "mcp__mempalace__mempalace_add_drawer"
     ]
   }
 }

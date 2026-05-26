@@ -26,7 +26,7 @@ These are the only things that are actually built and working:
 - **SQLite database** — `data/sayfit_meals.db` via `step5_database/database.py`
 - **FAISS index** — built from `data/combined_final.csv`, rebuilt via `python main.py --build-index`
 
-Everything else — the frontend, Docker, Langfuse, Prometheus, the data pipeline, the recipe module — is planned but does not exist yet.
+Everything else — the frontend, Langfuse, Prometheus, the data pipeline, the recipe module — is planned but does not exist yet.
 
 ---
 
@@ -35,8 +35,8 @@ Everything else — the frontend, Docker, Langfuse, Prometheus, the data pipelin
 The team is building toward this target state, in rough order:
 
 1. ~~**FastAPI layer** wrapping the existing pipeline (Kevin)~~ ✅ Done
-2. **Docker + docker-compose** packaging the API + database (Kevin) ← active
-3. **Next.js frontend** consuming the API (ML engineer)
+2. ~~**Docker + docker-compose** packaging the API + database (Kevin)~~ ✅ Done
+3. **Next.js frontend** consuming the API (ML engineer) ← active
 4. **LLM observability** via Langfuse (Kevin)
 5. **Recipe suggestions** as a new pipeline step (recipe module)
 6. **Data pipeline** making `combined_final.csv` reproducible (data engineer)
@@ -81,7 +81,7 @@ These decisions are open. If your work depends on one of them, raise it with the
 |----------|---------------|
 | SQLite vs Postgres for the meals database | **Decided: SQLite stays** — OLTP workload, file-based, no container needed |
 | DuckDB vs Postgres for the data pipeline | **Decided: DuckDB** — OLAP workload, owned by data engineer, separate compose file |
-| Langfuse self-hosted vs cloud | Affects docker-compose complexity |
+| Langfuse self-hosted vs cloud | **Decided: Langfuse cloud** — free tier sufficient for alpha (~5k obs/month used vs 50k limit); avoids 5-container self-hosted stack |
 | SSE vs request-response for pipeline runs | Affects how the frontend and API are wired together |
 | Recipe API endpoints | Needed before frontend can surface recipes |
 | FAISS index rebuild trigger | When data pipeline produces a new CSV, who rebuilds the index? |
