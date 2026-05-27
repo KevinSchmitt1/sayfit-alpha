@@ -6,6 +6,7 @@ import fastapi
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram
 
+from api.recipes import router as recipes_router
 from api.schemas import FoodItem, ItemCreate, ItemPatch, Meal, MealCreate, MealHistory
 from main import run_pipeline
 from step2_retrieval.retriever import retrieve
@@ -30,6 +31,7 @@ async def lifespan(app: fastapi.FastAPI):
     yield
 
 app = fastapi.FastAPI(lifespan=lifespan)
+app.include_router(recipes_router)
 instrumentator = Instrumentator().instrument(app)
 
 PIPELINE_DURATION = Histogram(
