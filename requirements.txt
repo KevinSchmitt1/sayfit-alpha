@@ -30,7 +30,7 @@ openai-whisper>=20231117
 
 # --- Observability ---
 langfuse>=4.0.0,<5.0.0          # LLM tracing for step1_extraction and step3_reranker
-
+prometheus-fastapi-instrumentator>=0.10.0
 # formatting
 
 ruff
