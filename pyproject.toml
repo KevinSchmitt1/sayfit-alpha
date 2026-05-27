@@ -2,4 +2,5 @@
 markers = [
     "heuristic: rule-based fallback path — rarely used in prod, fast to run",
     "llm_path: production LLM extraction path — mock the client, test the wiring",
+    "integration: hits real APIs or FAISS — requires credentials and local index",
 ]

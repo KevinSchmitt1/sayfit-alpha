@@ -1,23 +1,62 @@
 import datetime
+from contextlib import asynccontextmanager
+from pathlib import Path
 
 import fastapi
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram
 
 from api.schemas import FoodItem, ItemCreate, ItemPatch, Meal, MealCreate, MealHistory
 from main import run_pipeline
 from step2_retrieval.retriever import retrieve
 from step5_database.database import get_db
 
-app = fastapi.FastAPI()
 
+@asynccontextmanager
+async def lifespan(app: fastapi.FastAPI):
+    """Check if the two files we need to exist, exist."""
+    print("Server is starting and checking for mandatory files...")
+    if Path("data/sayfit_meals.db").exists():
+        print("Database file found.")
+    else:
+        print("Database file not found. Creating empty database file at 'data/sayfit_meals.db'.")
+        Path("data/sayfit_meals.db").touch()
+    if Path("data/faiss_index").exists():
+        print("FAISS index found.")
+    else:
+        print("FAISS index not found. Please run the data pipeline to create it.")
+        raise FileNotFoundError("FAISS index not found at 'data/faiss_index'")
+    instrumentator.expose(app)
+    yield
+
+app = fastapi.FastAPI(lifespan=lifespan)
+instrumentator = Instrumentator().instrument(app)
+
+PIPELINE_DURATION = Histogram(
+    "pipeline_duration_seconds",
+    "End-to-end duration of run_pipeline()",
+    buckets=[1, 2, 5, 10, 15, 20, 30, 60],
+)
+
+PIPELINE_ERRORS = Counter(
+    "pipeline_errors_total",
+    "Pipeline failures by error type",
+    ["error_type"],
+)
 
 @app.post("/log", response_model=Meal)
 def log_meal(meal: MealCreate):
     """Run pipeline on text input, save to DB, return structured meal."""
-    result = run_pipeline(
-        text=meal.text,
-        date_time=datetime.datetime.now().isoformat(),
-        uid=meal.uid,
-    )
+    with PIPELINE_DURATION.time():
+        try:
+            result = run_pipeline(
+                text=meal.text,
+                date_time=datetime.datetime.now().isoformat(),
+                uid=meal.uid,
+            )
+        except Exception as e:
+            PIPELINE_ERRORS.labels(error_type=type(e).__name__).inc()
+            raise
 
     saved = get_db().save_pipeline_result(
         reranked=result,
