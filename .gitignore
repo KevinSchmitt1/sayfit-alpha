@@ -211,6 +211,8 @@ data/faiss_index/
 data/calibrations/
 data/*.csv
 data/sayfit_meals.db
+data/*.duckdb
+KaggleData/
 outputs/
 .env
 .DS_Store
