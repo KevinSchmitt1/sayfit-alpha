@@ -21,11 +21,19 @@ Usage
 
 Scores logged per item
 ----------------------
-    kcal_accuracy   : 1 − |pred − exp| / exp  (clamped to [0, 1]; higher = better)
-    protein_accuracy: same for protein_g
-    fat_accuracy    : same for fat_g
-    carbs_accuracy  : same for carbs_g
-    item_count_match: 1.0 if predicted item count == expected item count, else 0.0
+    kcal_accuracy      : 1 − |pred − exp| / exp  (clamped to [0, 1]; higher = better)
+    protein_accuracy   : same for protein_g
+    fat_accuracy       : same for fat_g
+    carbs_accuracy     : same for carbs_g
+    item_count_match   : 1.0 if predicted item count == expected item count, else 0.0
+    avg_confidence     : pipeline self-confidence per item (high=1, medium=0.5, low=0)
+    item_recall        : fraction of expected food items found (token-overlap ≥ 0.5)
+    portion_plausibility: fraction of gram estimates within ±50 % of expected
+
+Run-level scores (aggregated)
+------------------------------
+    Per-metric averages across all items plus kcal_accuracy broken down by
+    dataset difficulty (medium / hard / very hard).
 """
 
 import argparse
@@ -63,6 +71,68 @@ def _pred_totals(result: dict) -> dict:
     return totals
 
 
+def _avg_confidence(result: dict) -> float:
+    """Mean pipeline confidence across items (high=1.0, medium=0.5, low=0.0)."""
+    mapping = {"high": 1.0, "medium": 0.5, "low": 0.0}
+    values = [mapping.get(r.get("confidence", "low"), 0.0) for r in result.get("results", [])]
+    return round(sum(values) / len(values), 4) if values else 0.0
+
+
+def _token_overlap(a: str, b: str) -> float:
+    """Fraction of tokens in *a* that appear in *b* (case-insensitive)."""
+    a_tok = set(a.lower().split())
+    b_tok = set(b.lower().split())
+    if not a_tok:
+        return 0.0
+    return len(a_tok & b_tok) / len(a_tok)
+
+
+def _item_recall(result: dict, expected: dict) -> float:
+    """Fraction of expected food items found in pipeline output.
+
+    Matching uses token overlap (≥ 0.5) against both item_name and matched_name.
+    """
+    exp_items = [it["item"] for it in expected.get("items", [])]
+    pred_strings = [
+        r.get("item_name", "") + " " + r.get("matched_name", "")
+        for r in result.get("results", [])
+    ]
+    if not exp_items:
+        return 1.0
+    matched = sum(
+        1 for exp in exp_items
+        if any(_token_overlap(exp, pred) >= 0.5 for pred in pred_strings)
+    )
+    return round(matched / len(exp_items), 4)
+
+
+def _portion_plausibility(result: dict, expected: dict) -> float:
+    """Fraction of predicted gram amounts within ±50 % of the expected amount.
+
+    Each predicted item is paired with the best-matching expected item by token
+    overlap.  Pairs with overlap < 0.4 are skipped (unmatched items).
+    """
+    exp_items = {it["item"]: it.get("amount_g", 0) for it in expected.get("items", [])}
+    if not exp_items:
+        return 1.0
+    plausible = 0
+    total = 0
+    for pred in result.get("results", []):
+        pred_name = pred.get("item_name", "")
+        pred_g = pred.get("amount_grams") or 0
+        best = max(exp_items, key=lambda e: _token_overlap(e, pred_name), default=None)
+        if best is None or _token_overlap(best, pred_name) < 0.4:
+            continue
+        exp_g = exp_items[best]
+        total += 1
+        if exp_g > 0:
+            if 0.5 <= pred_g / exp_g <= 1.5:
+                plausible += 1
+        elif pred_g == 0:
+            plausible += 1
+    return round(plausible / total, 4) if total > 0 else 1.0
+
+
 # ── Langfuse task ─────────────────────────────────────────────────────────────
 
 def make_pipeline_task():
@@ -88,24 +158,40 @@ def make_pipeline_task():
 # ── Langfuse evaluators ───────────────────────────────────────────────────────
 
 def run_averages(*, item_results):
-    """Run-level evaluator: computes per-metric averages across all items.
+    """Run-level evaluator: computes per-metric averages and difficulty breakdowns.
 
     These are stored as dataset-run-level scores (with dataset_run_id), which
     is what Langfuse's comparison view aggregates and displays.
     """
     from langfuse import Evaluation  # noqa: PLC0415
 
-    metric_names = ["kcal_accuracy", "protein_accuracy", "fat_accuracy", "carbs_accuracy", "item_count_match"]
+    metric_names = [
+        "kcal_accuracy", "protein_accuracy", "fat_accuracy", "carbs_accuracy",
+        "item_count_match", "avg_confidence", "item_recall", "portion_plausibility",
+    ]
     sums: dict[str, float] = {m: 0.0 for m in metric_names}
     counts: dict[str, int] = {m: 0 for m in metric_names}
 
+    # difficulty → kcal_accuracy sum/count for stratified scores
+    diff_sums: dict[str, float] = {}
+    diff_counts: dict[str, int] = {}
+
     for item_result in item_results:
+        difficulty = "unknown"
+        try:
+            difficulty = (item_result.item.metadata or {}).get("difficulty", "unknown")
+        except AttributeError:
+            pass
+
         for evaluation in item_result.evaluations:
             if evaluation.name in sums and isinstance(evaluation.value, (int, float)):
                 sums[evaluation.name] += evaluation.value
                 counts[evaluation.name] += 1
+            if evaluation.name == "kcal_accuracy" and isinstance(evaluation.value, (int, float)):
+                diff_sums[difficulty] = diff_sums.get(difficulty, 0.0) + evaluation.value
+                diff_counts[difficulty] = diff_counts.get(difficulty, 0) + 1
 
-    return [
+    results = [
         Evaluation(
             name=name,
             value=round(sums[name] / counts[name], 4) if counts[name] > 0 else 0.0,
@@ -113,6 +199,15 @@ def run_averages(*, item_results):
         )
         for name in metric_names
     ]
+
+    for diff, total in diff_counts.items():
+        results.append(Evaluation(
+            name=f"kcal_accuracy__{diff}",
+            value=round(diff_sums[diff] / total, 4),
+            comment=f"avg over {total} {diff} items",
+        ))
+
+    return results
 
 
 def evaluator_suite(*, input, output, expected_output, metadata, **kwargs):
@@ -157,6 +252,21 @@ def evaluator_suite(*, input, output, expected_output, metadata, **kwargs):
             name="item_count_match",
             value=1.0 if n_pred == n_exp else 0.0,
             comment=f"predicted {n_pred} items, expected {n_exp}",
+        ),
+        Evaluation(
+            name="avg_confidence",
+            value=_avg_confidence(output),
+            comment=f"over {n_pred} predicted items",
+        ),
+        Evaluation(
+            name="item_recall",
+            value=_item_recall(output, expected),
+            comment=f"expected {n_exp} items",
+        ),
+        Evaluation(
+            name="portion_plausibility",
+            value=_portion_plausibility(output, expected),
+            comment="gram estimate within ±50% of expected",
         ),
     ]
 
