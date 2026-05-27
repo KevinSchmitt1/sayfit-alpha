@@ -333,7 +333,7 @@ def resolve_portion_hint(
     Returns {"grams": float, "unit": str, "source": str}
     How to improve: make the search engine similar to step 2 (retriever)
     """
-    multiplier = float(quantity_parsed) if quantity_parsed is not None else 1.0
+    multiplier = float(quantity_parsed) if quantity_parsed not in (None, "null") else 1.0
     key = item_name.lower().strip().replace("-", " ")
 
     # Vague quantity words override the multiplier to ~0.2 of a default serving.
