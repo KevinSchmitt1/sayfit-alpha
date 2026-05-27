@@ -19,7 +19,6 @@ Standalone usage:
 import argparse
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Tuple, Dict
 
 import config  # triggers load_dotenv → SPOONACULAR_API_KEY available via os.getenv

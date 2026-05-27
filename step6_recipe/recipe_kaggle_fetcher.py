@@ -11,8 +11,7 @@ import urllib.request
 import duckdb
 from typing import Any, Dict, List
 
-import config
-from step6_recipe.recipe_kaggle_importer import _DB_PATH, _load_ingr_lookup, import_csv
+from step6_recipe.recipe_kaggle_importer import _DB_PATH, _load_ingr_lookup
 
 _MAX_KCAL_FACTOR = 1.25
 
