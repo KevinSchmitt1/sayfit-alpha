@@ -1,0 +1,17 @@
+id,feature,description,module,requires_internet,requires_api_key,requires_profile
+1,Macro-aware suggestions,Reads today's logged meals from the database and computes remaining calories / protein / fat / carbs. All suggestions are scoped to that budget.,recipe_suggester,no,no,no
+2,User daily profile integration,Uses the user's configured daily macro targets to calculate remaining budget. Falls back to conservative defaults if no profile exists.,recipe_suggester,no,no,no
+3,Interactive preference collection,Asks the user five CLI questions: target calories / taste / max prep time / ingredients on hand / few-ingredients preference.,recipe_suggester,no,no,no
+4,Partial-meal targeting,If the user sets a calorie target smaller than the full remaining budget all four macros are scaled proportionally so scoring stays consistent.,recipe_suggester,no,no,no
+5,LLM-built Spoonacular query,Sends remaining macros and preferences to an LLM which translates them into valid Spoonacular complexSearch API parameters.,recipe_query_builder,yes,yes,no
+6,Deterministic fallback query builder,If the LLM call fails the system falls back to a rule-based parameter builder that applies the same constraints deterministically.,recipe_query_builder,no,no,no
+7,Spoonacular recipe source,Fetches up to 8 recipe candidates from the Spoonacular complexSearch endpoint with full nutrition data and source URLs.,recipe_fetcher,yes,yes,no
+8,Local Kaggle recipe source,Fetches recipe candidates from a local SQLite database built from a Kaggle dataset. No API key or internet connection required.,recipe_kaggle_fetcher,no,no,no
+9,Combined source mode,Runs both Spoonacular and Kaggle simultaneously and merges results into a single ranked list with per-source counts shown.,recipe_suggester,yes,yes,no
+10,Automatic Kaggle DB import,If the local Kaggle database does not exist it is built automatically on first run from the raw CSV (one-time ~30 seconds).,recipe_kaggle_importer,no,no,no
+11,Macro-fit filtering,Hard-discards recipes that structurally cannot contribute enough nutrition. Discards recipes that would exceed the calorie budget by more than 20% even when scaled.,recipe_filter,no,no,no
+12,Portion scaling,Scales recipes up to the nearest 0.25 portion (max 2.5x) when a single serving does not cover the macro thresholds.,recipe_filter,no,no,no
+13,Macro-fit scoring and ranking,Scores recipes on a weighted formula (protein 45% / calories 30% / carbs 15% / fat 10%) and sorts best-fit-first. Attaches a 0-100 fit score to each result.,recipe_filter,no,no,no
+14,Low-calorie tip,If remaining calories are below 200 kcal the system prints a quick-options tip (protein shake / Greek yogurt / cottage cheese / eggs) before the preference prompts.,recipe_suggester,no,no,no
+15,Flexible recipe source selection,Source is selectable at runtime via --source CLI flag (spoonacular / kaggle / combo) for easy switching between online and offline operation.,recipe_suggester,no,no,no
+16,Standalone CLI usage,Runs as a standalone module via python -m step6_recipe.recipe_suggester with a --user flag for targeting a specific user ID.,recipe_suggester,no,no,no
