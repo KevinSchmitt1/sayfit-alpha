@@ -3,7 +3,7 @@ Full end-to-end pipeline integration test.
 
 Runs all 5 steps with real LLM and real FAISS index.
 Local only — requires:
-  - FAISS index built at data/faiss_index/  (python main.py --build-index)
+  - FAISS index built at data/faiss_index/  (build the index in sayfit-data-repo)
   - GROQ_API_KEY (or OPENAI_API_KEY) in environment
 
 Do NOT run in CI: FAISS index is not available there.
