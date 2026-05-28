@@ -17,18 +17,24 @@ from step5_database.database import get_db
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
-    """Check if the two files we need to exist, exist."""
-    print("Server is starting and checking for mandatory files...")
-    if Path("data/sayfit_meals.db").exists():
-        print("Database file found.")
-    else:
-        print("Database file not found. Creating empty database file at 'data/sayfit_meals.db'.")
-        Path("data/sayfit_meals.db").touch()
-    if Path("data/faiss_index").exists():
-        print("FAISS index found.")
-    else:
-        print("FAISS index not found. Please run the data pipeline to create it.")
-        raise FileNotFoundError("FAISS index not found at 'data/faiss_index'")
+    """Validate required files and initialise the database before serving."""
+    print("Server is starting — checking mandatory files...")
+
+    # Initialise SQLite DB (creates file + tables if they don't exist yet)
+    db_path = Path("data/sayfit_meals.db")
+    db_existed = db_path.exists()
+    get_db()  # sqlite3.connect creates the file; _ensure_db() creates tables
+    print("Database file found." if db_existed else "Database file not found — created fresh at 'data/sayfit_meals.db'.")
+
+    # FAISS index must be present — shipped by sayfit-data-repo, not built here
+    index_file = Path("data/faiss_index/food.index")
+    if not index_file.exists():
+        raise FileNotFoundError(
+            f"FAISS index not found at '{index_file}'. "
+            "Run sayfit-data-repo to build and place the index, then restart."
+        )
+    print("FAISS index found.")
+
     instrumentator.expose(app)
     yield
 

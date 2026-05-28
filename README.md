@@ -33,8 +33,8 @@ EOF
 #    Expected: usda_final.csv, combined_final.csv,
 #    food_ontology_300.json, portion_defaults.json
 
-# 6. Build the FAISS index (one-time)
-python main.py --build-index
+# 6. Copy the FAISS index from sayfit-data-repo
+# (sayfit-data-repo builds it; copy data/faiss_index/ into this repo)
 
 # 7. Run the pipeline
 python main.py
@@ -231,12 +231,6 @@ Input JSON format:
   "date_time": "2026-03-05T12:30:00",
   "UID": "user_001"
 }
-```
-
-### Build The Index
-
-```bash
-python main.py --build-index
 ```
 
 ### Show Configuration
@@ -444,7 +438,7 @@ That makes the system much less of a black box and much easier to iterate on.
 
 | Issue | Solution |
 |-------|----------|
-| `FAISS index not found` | Run `python main.py --build-index` |
+| `FAISS index not found` | Run `sayfit-data-repo` to build the index, then place it at `data/faiss_index/` |
 | `food_meta.pkl` or `food.index` missing | Rebuild the index in `data/faiss_index/` |
 | `GROQ_API_KEY not set` | Add your key to `.env` as `GROQ_API_KEY=...` |
 | You want local testing without API calls | Use `--no-llm` or `--locllm` |

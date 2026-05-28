@@ -24,7 +24,7 @@ These are the only things that are actually built and working:
 - **CI** — `.github/workflows/ci.yml` runs `ruff check` + `pytest` on every push
 - **Unit tests** — `tests/unit/` covering pipeline steps, database layer, and formatter
 - **SQLite database** — `data/sayfit_meals.db` via `step5_database/database.py`
-- **FAISS index** — built from `data/combined_final.csv`, rebuilt via `python main.py --build-index`
+- **FAISS index** — built by `sayfit-data-repo` and placed at `data/faiss_index/`
 
 Everything else — the frontend, Langfuse, Prometheus, the data pipeline, the recipe module — is planned but does not exist yet.
 

@@ -99,21 +99,15 @@ class Spinner:
 
 
 def _ensure_index():
-    """Check that the FAISS index exists; if not, offer to build it."""
+    """Check that the FAISS index exists; if not, print an error and return False."""
     index_path = config.INDEX_DIR / "food.index"
     if index_path.exists():
         return True
 
-    print("\n⚠️  FAISS index not found. You need to build it first.")
-    print("   This is a one-time step that indexes the food databases.")
-    ans = input("   Build index now? [Y/n] ").strip().lower()
-    if ans in ("", "y", "yes"):
-        from step2_retrieval.build_index import build_index
-        build_index()
-        return True
-    else:
-        print("   Skipping index build. Retrieval will not work.")
-        return False
+    print("\n❌ FAISS index not found at 'data/faiss_index/food.index'.")
+    print("   The index is built by the data pipeline (sayfit-data-repo).")
+    print("   Run the data repo to generate and place the index, then retry.")
+    return False
 
 
 def _make_run_dir(parent: Path | None = None, name: str | None = None) -> Path:
@@ -967,7 +961,6 @@ Examples:
   python main.py --wav my_audio.wav                 # transcribe .wav → full pipeline
   python main.py --text "2 eggs and a banana"       # single query
   python main.py --input inputs/meal.json           # file input
-  python main.py --build-index                      # build FAISS index only
         """,
     )
     parser.add_argument("--record", action="store_true", help="Record from microphone (Step 0)")
@@ -987,7 +980,6 @@ Examples:
                         help="Use OpenAI instead of Groq (requires OPENAI_API_KEY in .env)")
     parser.add_argument("--locllm", action="store_true",
                         help="Use local Ollama instead of Groq (qwen2.5:7b)")
-    parser.add_argument("--build-index", action="store_true", help="Build FAISS index and exit")
     parser.add_argument("--show-config", action="store_true", help="Print configuration and exit")
     parser.add_argument("--devmode", action="store_true",
                         help="Show verbose step-by-step debug output (developer mode)")
@@ -1016,12 +1008,6 @@ Examples:
     # show config
     if args.show_config:
         config.print_config()
-        return
-
-    # build index only
-    if args.build_index:
-        from step2_retrieval.build_index import build_index
-        build_index()
         return
 
     # update profile only (no meal logging)
@@ -1230,7 +1216,7 @@ Examples:
         # interactive main-menu mode
         if not has_index:
             print("\n❌ Cannot run interactive mode without FAISS index. "
-                  "Run: python main.py --build-index")
+                  "Please run the sayfit-data-repo to build it.")
             sys.exit(1)
         uid = args.uid or _get_last_user()
         run_main_menu(uid, use_llm=not args.no_llm, duration=args.duration)
