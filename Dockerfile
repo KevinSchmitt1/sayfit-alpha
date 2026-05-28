@@ -2,6 +2,11 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# ffmpeg is required by openai-whisper to decode audio formats from the browser
+# (WebM, Opus, MP4, etc.). Must be installed before the pip layer.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies before copying code — so Docker can cache this layer
 # and skip reinstalling when only your code changes.
 COPY requirements-api.txt .

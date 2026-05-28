@@ -1,10 +1,15 @@
 # SayFit Alpha — API container dependencies
-# Excludes voice input (sounddevice, openai-whisper, scipy) and dev tools (ruff, black)
-# those are CLI-only or CI-only concerns.
+# Excludes voice recording (sounddevice) — PortAudio must never run in the container.
+# openai-whisper is included for POST /transcribe (transcription only, no mic access).
+# scipy and dev tools (ruff, black) remain CLI-only.
 
 # --- Core pipeline ---
 openai>=1.10.0
 python-dotenv>=1.0.0
+
+# --- Transcription ---
+openai-whisper>=20231117
+python-multipart>=0.0.9  # required by FastAPI for UploadFile / multipart form data
 
 # --- Retrieval / RAG ---
 faiss-cpu>=1.7.4

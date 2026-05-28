@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import fastapi
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram
 
 from api.recipes import router as recipes_router
+from api.transcribe import router as transcribe_router
 from api.schemas import FoodItem, ItemCreate, ItemPatch, Meal, MealCreate, MealHistory
 from main import run_pipeline
 from step2_retrieval.retriever import retrieve
@@ -32,6 +34,14 @@ async def lifespan(app: fastapi.FastAPI):
 
 app = fastapi.FastAPI(lifespan=lifespan)
 app.include_router(recipes_router)
+app.include_router(transcribe_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 instrumentator = Instrumentator().instrument(app)
 
 PIPELINE_DURATION = Histogram(

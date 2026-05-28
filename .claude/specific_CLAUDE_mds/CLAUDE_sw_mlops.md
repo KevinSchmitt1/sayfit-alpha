@@ -134,13 +134,16 @@ Base URL (local): `http://localhost:8000`
 
 | Method | Path | Body / Params | Response | Description |
 |--------|------|---------------|----------|-------------|
-| `POST` | `/log` | `{ uid, text }` | `Meal` (201) | Run pipeline on text input; returns structured meal with item UUIDs |
+| `POST` | `/log` | `{ uid, text }` | `Meal` (200) | Run pipeline on text input; returns structured meal with item UUIDs |
 | `GET` | `/meals/{uid}/today` | — | `list[Meal]` (200) | All meals with full item detail logged today |
 | `GET` | `/meals/{uid}` | `?days=N` (default 30) | `MealHistory` (200) | Daily macro summary for the last N days |
 | `PATCH` | `/meals/{uid}/items/{item_id}` | `{ meal_id, grams }` | 204 | Rescale item portion; macros recalculated proportionally |
 | `POST` | `/meals/{uid}/items` | `{ meal_id, item_name, grams }` | `FoodItem` (201) | Add a missed item; nutrition resolved via FAISS top candidate |
 | `DELETE` | `/meals/{uid}/items/{item_id}` | `?meal_id=<meal_id>` | 204 | Soft-delete item; recalculates meal totals |
 | `DELETE` | `/meals/{uid}/{meal_id}` | — | 204 | Soft-delete a whole meal and all its items |
+| `POST` | `/transcribe` | `multipart/form-data` — field `file` (audio blob) | `TranscribeResponse` (200) | Transcribe uploaded audio with Whisper; recording stays in the browser |
+| `POST` | `/recipes/{uid}/suggest` | `RecipeSuggestRequest` | `RecipeSuggestResponse` (200) | Suggest recipes matching user's remaining macro budget |
+| `POST` | `/recipes/{uid}/log-suggestion` | `RecipeLogRequest` | `Meal` (201) | Log a chosen recipe as a meal |
 
 **Note:** `POST /log` does not run the interactive correction loop (`ask_user_corrections()`). That loop is CLI-only. The full add/edit/remove flow lives in the UI and maps to the four mutation endpoints above.
 
@@ -343,10 +346,10 @@ Concrete changes Kevin needs to make to the API, Docker, CI, or tests when each 
 
 | Action | File | Detail |
 |--------|------|--------|
-| Add CORS middleware | `api/main.py` | Browser on port 3000 calling API on port 8000 is a cross-origin request — the browser will block it without `CORSMiddleware`. Add `from fastapi.middleware.cors import CORSMiddleware`, configure allowed origins (`localhost:3000` for dev). |
+| ~~Add CORS middleware~~ | ~~`api/main.py`~~ | ✅ Done — `CORSMiddleware` added, allows `http://localhost:3000`, `allow_credentials=True`, `allow_methods=["*"]`, `allow_headers=["*"]`. Tighten origins list before production. |
 | Add `frontend` service | `docker-compose.yml` | New service: image TBD by ML engineer, port `3000:3000`, env var for API URL. |
-| Agree on API base URL pattern | `docker-compose.yml` + ML engineer | Browser-side JS must call `localhost:8000`; server-side Next.js (SSR) can call `api:8000` internally. Agree on which env var controls this (`NEXT_PUBLIC_API_URL` vs `API_URL`). |
-| Add CORS header assertion to tests | `tests/unit/test_api.py` | After CORS middleware is added, assert `Access-Control-Allow-Origin` is present in responses. |
+| Agree on API base URL pattern | `docker-compose.yml` + ML engineer | Browser-side JS: `NEXT_PUBLIC_API_URL=http://localhost:8000`; server-side Next.js (SSR): `API_URL=http://api:8000` (internal Docker DNS). |
+| Add CORS header assertion to tests | `tests/unit/test_api.py` | After verifying CORS works in browser, add `Access-Control-Allow-Origin` assertion to API tests. |
 
 ### When data engineer ships the data pipeline
 
