@@ -22,12 +22,11 @@ openai-whisper>=20231117
 # --- Recipe step (step6) ---
 duckdb>=0.10.0
 
-# --- Dev / EDA (optional) ---
-# setuptools>=68
-# wheel>=0.41
-# matplotlib
-# seaborn
-# ipykernel
+# --- API ---
+fastapi>=0.136.0
+uvicorn[standard]>=0.47.0
+httpx>=0.28.0
+python-multipart>=0.0.9     # required by FastAPI for UploadFile / multipart form data
 
 
 # --- Observability ---

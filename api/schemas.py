@@ -53,6 +53,10 @@ class MealHistory(BaseModel):
     average_protein: float
 
 
+class TranscribeResponse(BaseModel):
+    text: str
+
+
 # ── Recipe endpoints ──────────────────────────────────────────────────────────
 
 class RecipePreferences(BaseModel):
