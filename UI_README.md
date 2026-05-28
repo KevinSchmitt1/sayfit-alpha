@@ -2,11 +2,7 @@
 
 > **Audience:** ML engineer building the Next.js frontend.
 > This document is the authoritative contract between the FastAPI backend and the UI.
-> It covers every endpoint, all TypeScript types, the voice input flow, error handling, and CORS.
-
----
-
-## Quick Start
+> It covers every endpoint, all TypeScript types, the voice input flow, error handling, and 
 
 ```bash
 # Backend — Docker (recommended, matches production)

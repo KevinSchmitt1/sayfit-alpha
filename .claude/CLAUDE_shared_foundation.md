@@ -83,7 +83,7 @@ Pipeline      step5_database  step6_recipe  /metrics
 │  USDA + OpenFoodFacts → clean → deduplicate → merge        │
 │         │                                                   │
 │         └─► combined_final.csv → FAISS index rebuild       │
-│                                  (python main.py --build-index)
+│                                  (sayfit-data-repo)          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,7 +111,7 @@ python main.py --no-llm                # heuristic mode, no API key needed
 
 **Rebuild FAISS index (after data pipeline produces new combined_final.csv):**
 ```bash
-python main.py --build-index
+# Run sayfit-data-repo to generate the index, then copy data/faiss_index/ here
 ```
 
 **Recipe suggester (CLI):**
