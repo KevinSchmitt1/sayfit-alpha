@@ -4,7 +4,6 @@ Step 2 – Standalone runner
 Usage:
     python -m step2_retrieval.run                         # uses example input
     python -m step2_retrieval.run --input queries.json    # custom input
-    python -m step2_retrieval.run --build-index           # build FAISS index first
 """
 
 import argparse
@@ -24,19 +23,12 @@ def main():
     parser.add_argument("--input", type=str, default=None,
                         help="Path to input JSON (step1 output or query list)")
     parser.add_argument("--output", type=str, default=None, help="Path to save output JSON")
-    parser.add_argument("--build-index", action="store_true",
-                        help="Build the FAISS index before retrieving")
     parser.add_argument("--top-k", type=int, default=None, help="Number of candidates per query")
     args = parser.parse_args()
 
     print("=" * 60)
     print("  Step 2 – Food Retrieval (RAG)")
     print("=" * 60)
-
-    # optionally build index first
-    if args.build_index:
-        from step2_retrieval.build_index import build_index
-        build_index()
 
     from step2_retrieval.retriever import retrieve
 

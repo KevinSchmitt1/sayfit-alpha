@@ -1,230 +1,268 @@
-# SayFit Alpha 🍽️
+# SayFit Alpha
 
-**Voice-to-nutrition food logger** – tell the system what you ate and get matched foods, estimated portions, macros, and a saved meal log.
+**Voice-to-nutrition food logger.** Tell SayFit what you ate — by text or voice — and get back matched foods, estimated portions, macros, and a saved meal history.
 
-SayFit uses a modular pipeline with LLM extraction, ontology-guided retrieval, FAISS vector search, reranking, and local persistence to convert natural language food descriptions into structured nutrition logs.
+The app runs as a containerised REST API. The pipeline uses LLM extraction, ontology-guided retrieval, FAISS vector search, and a reranker to turn natural language into structured nutrition data stored in SQLite.
 
----
-
-## Quick Start
-
-```bash
-# 1. Clone the repo
-git clone <repo-url> && cd sayfit-alpha
-
-# 2. Create & activate a virtual environment
-# Python 3.14.x is the version used in this repo
-/opt/homebrew/bin/python3.14 -m venv .venv
-source .venv/bin/activate   # macOS/Linux
-# .venv\Scripts\activate    # Windows
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Set up your API key
-cat > .env <<'EOF'
-GROQ_API_KEY=your_groq_api_key_here
-EOF
-
-# Optional: also supported
-# OPENAI_API_KEY=your_openai_api_key_here
-
-# 5. Make sure the main data files exist in data/
-#    Expected: usda_final.csv, combined_final.csv,
-#    food_ontology_300.json, portion_defaults.json
-
-# 6. Build the FAISS index (one-time)
-python main.py --build-index
-
-# 7. Run the pipeline
-python main.py
-```
-
-If you want to use the notebooks too:
-
-```bash
-pip install ipykernel jupyter matplotlib seaborn
-```
+> **Status:** API + pipeline fully working. Frontend is not yet built — the API can be used directly via the Swagger UI or any HTTP client.
 
 ---
 
 ## How It Works
 
 ```
-Voice / Text / JSON Input
-          │
-          ▼
-┌──────────────────────────────┐
-│ Step 0: Voice Input          │   Record mic / load .wav → Whisper
-│ "i ate 2 eggs and pizza"    │   → {text, date_time, UID}
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 1: Extraction (LLM)     │   Parse foods, quantities, descriptions,
-│ Structured food items        │   category ranks, and queries
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 1.5: Ontology Filter    │   Refine categories and resolve
-│ Category + portion hints     │   portion hints before retrieval
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 2: Retrieval (FAISS)    │   Vector search over indexed food rows
-│ Top-K candidates             │   with category boosts and penalties
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 3: Reranker             │   Pick best match, estimate grams,
-│ Portion + macro calculation  │   and calculate nutrition totals
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 4: Output               │   Render terminal table + totals,
-│ Review & correction          │   allow user corrections
-└──────────────┬───────────────┘
-               │
-               ▼
-┌──────────────────────────────┐
-│ Step 5: Database             │   Save meals, meal items,
-│ SQLite persistence           │   calibrations, and user profiles
-└──────────────────────────────┘
+Text or audio input
+        │
+        ▼
+┌───────────────────┐
+│ Step 1: Extraction │  LLM parses food items, quantities, and categories
+└────────┬──────────┘
+         │
+         ▼
+┌────────────────────────┐
+│ Step 1.5: Ontology     │  Category hints + portion size lookup
+└────────┬───────────────┘
+         │
+         ▼
+┌────────────────────────┐
+│ Step 2: Retrieval      │  FAISS vector search over 80k+ foods (USDA + OFF)
+└────────┬───────────────┘
+         │
+         ▼
+┌────────────────────────┐
+│ Step 3: Reranker       │  Picks best match, estimates grams, calculates macros
+└────────┬───────────────┘
+         │
+         ▼
+┌────────────────────────┐
+│ Step 5: Database       │  Saves meal + items to SQLite
+└────────┬───────────────┘
+         │
+         ▼
+┌────────────────────────┐
+│ Step 6: Recipe         │  Suggests recipes that fit remaining macro budget
+│ Suggestions            │  Sources: Spoonacular API · local Kaggle DuckDB (179K recipes) · both
+└────────────────────────┘
 ```
 
----
-
-## What Is In The Repo
-
-This repo now contains more than the original project brief in `structure.md`.
-
-It includes:
-
-- a full terminal-first pipeline in `main.py`
-- standalone step modules for debugging and iteration
-- ontology-guided retrieval and portion hinting
-- multiple LLM backends (Groq, OpenAI, Ollama, heuristic fallback)
-- correction / learning flow with persistent calibrations
-- SQLite meal logging and user profile storage
-
-### What is not in the repo:
-
-## EDA and Data
-
-There is also notebook-based work in another github repo:
-
-`https://github.com/KevinSchmitt1/sayfit-data-repo.git` 
-
-This includes the EDA of the project and a full description of the cycle on how to build the database, used for this app, out of the cleaned data (usda and openfoodfacts).
-
-It also includes the building of the ontology filter (categories).
-
+> Step 4 (terminal table formatter) is only active in CLI mode — the API returns JSON directly after Step 3.
 
 ---
 
-## Project Structure
+## Before You Start
+
+### 1. Get an API key
+
+Groq is the default LLM backend — get a free key at [console.groq.com](https://console.groq.com).
+
+Create a `.env` file in the repo root:
+
+```bash
+GROQ_API_KEY=your_key_here
+
+# Optional — only needed if you want to use OpenAI instead of Groq
+# OPENAI_API_KEY=your_key_here
+
+# Optional — Langfuse cloud tracing (LLM call latency, token usage, errors)
+# Free tier at langfuse.com is sufficient for development (~50k observations/month)
+# LANGFUSE_PUBLIC_KEY=your_key
+# LANGFUSE_SECRET_KEY=your_key
+
+# Optional — Step 6 recipe suggestions via Spoonacular API
+# Free tier: 150 calls/day. Without this, recipe step falls back to local Kaggle DB.
+# SPOONACULAR_API_KEY=your_key
+```
+
+### 2. Get the FAISS index from sayfit-data-repo
+
+The FAISS index is **not included in this repo** (too large for git) — it is built by the companion data pipeline:
+
+**[KevinSchmitt1/sayfit-data-repo](https://github.com/KevinSchmitt1/sayfit-data-repo)**
+
+That repo processes USDA FoodData Central + OpenFoodFacts, deduplicates entries, applies ontology labels, and outputs the index. Follow its README to run the pipeline, then copy the output here:
 
 ```
 sayfit-alpha/
-├── main.py                          # Main CLI and full pipeline orchestration
-├── config.py                        # Paths, env loading, model settings, feature flags
-├── llm_client.py                    # Shared Groq / OpenAI / Ollama client factory
-├── food_portion_lookup.py           # Deterministic portion lookup helper
-├── requirements.txt
-├── README.md
-├── structure.md                     # Original project brief
-├── updates.md                       # Notes on ontology boost changes
-│
-├── step0_voice_input/               # Audio recording + Whisper transcription
-│   ├── voice_recorder.py
-│   └── run.py
-│
-├── step1_extraction/                # LLM / heuristic extraction from raw text
-│   ├── extractor.py
-│   └── run.py
-│
-├── step1_5_ontology_filter/         # Category prediction + portion hint resolution
-│   ├── ontology_filter.py
-│   ├── food_portion_lookup.py
-│   └── __init__.py
-│
-├── step2_retrieval/                 # FAISS build + candidate retrieval
-│   ├── build_index.py
-│   ├── retriever.py
-│   └── run.py
-│
-├── step3_reranker/                  # Reranker + calibrations
-│   ├── reranker.py
-│   ├── calibration.py
-│   └── run.py
-│
-├── step4_output/                    # Terminal table / totals formatting
-│   ├── formatter.py
-│   └── run.py
-│
-├── step5_database/                  # SQLite persistence layer
-│   ├── database.py
-│   └── run.py
-│
-├── docs/
-│   └── data_cleaning.md             # Cleaning overview for source food data
-│
-├── data/                            # Data files, FAISS index, DB, calibrations
-│   ├── usda_final.csv
-│   ├── combined_final.csv
-│   ├── food_ontology_300.json
-│   ├── portion_defaults.json
-│   ├── faiss_index/
-│   ├── calibrations/
-│   └── sayfit_meals.db
-│
-├── inputs/                          # Optional JSON inputs for file mode
-├── input_tests/                     # Evaluation / test input assets
-├── outputs/                         # Per-run outputs written by the pipeline
-│
-├── eda.ipynb
-├── analyze_tests.py
-└── food_dbs.zip
+└── data/
+    └── faiss_index/           ← from sayfit-data-repo  (REQUIRED)
+        ├── food.index           ← FAISS vector index
+        └── food_meta.pkl        ← metadata sidecar (item names, macros, categories)
 ```
+
+> `food.index` and `food_meta.pkl` are always a matched pair from the same build — the FAISS index returns vector positions, and the pkl maps those positions back to the actual food rows.
+
+All other data files (`food_ontology_300.json`, `portion_defaults.json`, `combined_final.csv`, `usda_final.csv`) ship with this repo and require no action.
 
 ---
 
-## Usage Modes
+## Running with Docker
 
-### Interactive Mode (default)
-
-```bash
-python main.py
-```
-
-Type what you ate, review the results, correct them if needed, and save the meal.
-
-### Direct Text Mode
+This is the primary way to run SayFit.
 
 ```bash
-python main.py --text "i had 2 eggs and a banana for breakfast"
+docker compose up --build
 ```
 
-### Voice Recording Mode
+> The first build takes several minutes — `openai-whisper` pulls PyTorch (~1.5 GB) and `ffmpeg` is installed as a system package. Subsequent builds are fast (layers are cached).
+
+On startup the container:
+1. Opens (or creates) `data/sayfit_meals.db` and runs `CREATE TABLE IF NOT EXISTS` for all tables
+2. Checks that `data/faiss_index/food.index` exists — exits with a clear error if not
+3. Starts the API server on port 8000
+
+The FAISS index is mounted **read-only** inside the container (`./data/faiss_index:/app/data/faiss_index:ro`) — the pipeline cannot overwrite it.
+
+### Available ports after `docker compose up`
+
+| What | URL | What you can do there |
+|------|-----|-----------------------|
+| **FastAPI** | http://localhost:8000 | Send requests to the API |
+| **Swagger UI** | http://localhost:8000/docs | Interactive API explorer — test all endpoints in the browser |
+| **Prometheus metrics** | http://localhost:8000/metrics | Raw metrics scraped by Prometheus |
+| **Prometheus UI** | http://localhost:9090 | Query metrics, inspect targets |
+| **Grafana** | http://localhost:3001 | Dashboards — login: `admin` / `admin` |
+
+---
+
+## API Endpoints
+
+Full interactive docs with request/response schemas: **http://localhost:8000/docs**
+
+### Log a meal
+
+```http
+POST /log
+Content-Type: application/json
+
+{
+  "uid": "user_001",
+  "text": "i had 2 eggs and a banana for breakfast"
+}
+```
+
+### Transcribe audio → text
+
+```http
+POST /transcribe
+Content-Type: multipart/form-data
+
+file: <audio file>   # WebM, Opus, WAV, MP3 — anything ffmpeg can decode
+```
+
+Returns `{ "text": "..." }`. Feed the result into `POST /log`.
+
+### Meal history
+
+```http
+GET /meals/{uid}/today          # today's meals
+GET /meals/{uid}?days=30        # last N days with macro totals
+```
+
+### Edit a logged meal
+
+```http
+PATCH  /meals/{uid}/items/{item_id}     # rescale a food item (recalculates macros)
+POST   /meals/{uid}/items               # add a missed food item
+DELETE /meals/{uid}/items/{item_id}     # remove a food item
+DELETE /meals/{uid}/{meal_id}           # delete a whole meal
+```
+
+### Recipe suggestions (Step 6)
+
+```http
+POST /recipes/{uid}/suggest
+Content-Type: application/json
+
+{
+  "source": "kaggle",        # "spoonacular", "kaggle", or "combo"
+  "target_calories": 500,    # optional — defaults to full remaining budget
+  "taste": "savory",         # optional: "savory", "sweet", "any"
+  "max_time": 30             # optional: max prep time in minutes
+}
+```
+
+```http
+POST /recipes/{uid}/log-suggestion
+```
+
+Saves a chosen recipe suggestion to the daily meal log.
+
+---
+
+## Step 6 — Recipe Suggestions
+
+After logging a meal, SayFit can suggest recipes that fit your **remaining macro budget** for the day.
+
+Three data sources are supported:
+
+| Flag | Source | Requires |
+|------|--------|----------|
+| `"spoonacular"` _(default)_ | Spoonacular REST API | `SPOONACULAR_API_KEY` in `.env` (free: 150 calls/day) |
+| `"kaggle"` | Local DuckDB — 179K recipes, fully offline | One-time auto-download (~220 MB) |
+| `"combo"` | Both merged, best 3 from combined pool | Both of the above |
+
+### Kaggle recipe database
+
+The Kaggle dataset is stored in a local DuckDB file (`data/kaggle_recipes.duckdb`). It is **not included in the repo** — it downloads itself automatically the first time it's needed:
+
+```
+Fetching recipe candidates from local Kaggle DB...
+Downloading recipe database from GitHub Releases (~220 MB)...
+This only happens once — subsequent runs use the local file.
+100%  (220 MB)...
+Done — saved to data/kaggle_recipes.duckdb
+```
+
+The import filters the raw 267K-row Kaggle dataset down to **179,654 standalone meals** by removing condiments, sauces, beverages, recipes under 100 kcal, and other non-meal categories.
+
+### Data files overview
+
+| File | Contents | How it gets there |
+|------|----------|-------------------|
+| `data/faiss_index/food.index` | FAISS vector index | Copy from sayfit-data-repo (required) |
+| `data/faiss_index/food_meta.pkl` | Metadata sidecar — item names, macros, categories per vector | Copy from sayfit-data-repo (required, matched pair with food.index) |
+| `data/food_ontology_300.json` | 300-category food ontology for portion hints | Included in this repo |
+| `data/portion_defaults.json` | Fallback portion sizes | Included in this repo |
+| `data/combined_final.csv` | Combined USDA + OFF food dataset | Included in this repo |
+| `data/kaggle_recipes.duckdb` | 179K recipes with macros, ingredients, steps | Auto-downloaded on first use |
+| `data/sayfit_meals.db` | User profiles + logged meals (SQLite) | Created automatically on startup |
+
+---
+
+## Observability
+
+**Prometheus + Grafana** — request rate, error rate, and pipeline duration metrics are collected automatically via `prometheus-fastapi-instrumentator`. No configuration needed; dashboards are pre-loaded in Grafana at http://localhost:3001 (login: `admin` / `admin`).
+
+**Langfuse** — LLM call tracing (latency, token usage, errors) for the extraction and reranker steps. Uses Langfuse cloud ([langfuse.com](https://langfuse.com)) — free tier is sufficient for development. Add `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to `.env` to enable it. Tracing is silently skipped if the keys are absent.
+
+---
+
+## Local Development (without Docker)
 
 ```bash
-python main.py --record
-python main.py --record --duration 20
-python main.py --wav path/to/audio.wav
+# Python 3.14.x is the version used in this repo
+/opt/homebrew/bin/python3.14 -m venv .venv
+source .venv/bin/activate
+
+pip install -r requirements.txt
+PYTHONPATH=. uvicorn api.main:app --reload
 ```
 
-### File Input Mode
+### CLI mode
+
+The original terminal pipeline still works for debugging and development:
 
 ```bash
-python main.py --input inputs/my_meal.json
+python main.py                                        # interactive mode — type what you ate
+python main.py --text "2 eggs and rice"               # single text input, no interaction
+python main.py --record                               # record mic (default 15s) → transcribe
+python main.py --record --duration 20                 # record with custom duration
+python main.py --wav path/to/audio.wav                # transcribe an existing .wav file
+python main.py --input inputs/my_meal.json            # file-based input (see format below)
+python main.py --show-config                          # print active configuration and exit
 ```
 
-Input JSON format:
-
+**File input format** (`--input`):
 ```json
 {
   "text": "i ate a pepperoni pizza and 3 eggs",
@@ -233,39 +271,21 @@ Input JSON format:
 }
 ```
 
-### Build The Index
-
+**LLM backend selection:**
 ```bash
-python main.py --build-index
+python main.py --text "i ate a banana"          # default: Groq (GROQ_API_KEY)
+python main.py --text "i ate a banana" --openai  # OpenAI (OPENAI_API_KEY)
+python main.py --text "i ate a banana" --locllm  # Ollama-compatible local inference
+python main.py --text "i ate a banana" --no-llm  # heuristic fallback, no API key needed
 ```
 
-### Show Configuration
-
-```bash
-python main.py --show-config
-```
-
-### Backend Selection
-
-Groq is the default backend.
-
-```bash
-python main.py --text "i ate a banana"
-python main.py --text "i ate a banana" --openai
-python main.py --text "i ate a banana" --locllm
-python main.py --text "i ate a banana" --no-llm
-```
-
-- default: Groq via `GROQ_API_KEY`
-- `--openai`: OpenAI via `OPENAI_API_KEY`
-- `--locllm`: Ollama-compatible local inference
-- `--no-llm`: heuristic fallback mode
+> Voice recording (`python main.py --record`) requires PortAudio and does **not** work inside Docker due to a macOS PortAudio/FAISS/OpenMP conflict. Use `POST /transcribe` for audio input when running the API.
 
 ---
 
 ## Running Individual Steps
 
-Each step can run standalone for debugging or development:
+Each pipeline step can run standalone for debugging or development:
 
 ```bash
 # Step 0: record / transcribe audio
@@ -278,129 +298,44 @@ python -m step1_extraction.run --input step1_extraction/example_input.json
 # Step 1.5: apply ontology filtering
 python -m step1_5_ontology_filter.ontology_filter --input step1_output.json
 
-# Step 2: build the FAISS index
-python -m step2_retrieval.build_index
-
 # Step 2: retrieve candidates
 python -m step2_retrieval.run --input step2_retrieval/example_input.json
 
 # Step 3: rerank retrieved candidates
 python -m step3_reranker.run
 
-# Step 4: format final output
+# Step 4: format final output (CLI only)
 python -m step4_output.run
 
 # Step 5: database / persistence helpers
 python -m step5_database.run
 ```
 
----
-
-## Data And Retrieval
-
-The retriever in this repo works over **structured food rows**, not freeform documents.
-
-The current FAISS builder reads `data/combined_final.csv` and stores the index in `data/faiss_index/`.
-
-### Main data files used by the repo
-
-- `data/combined_final.csv` – combined indexable food dataset used by the current builder
-- `data/food_ontology_300.json` – ontology for category / portion hints
-- `data/portion_defaults.json` – fallback portion defaults
-
-### Retrieval behavior
-
-The current retriever includes:
-
-- multi-query pooling
-- name penalties for weak lexical matches
-- ontology-based category boosts
-- ranked L1 boosting (`rank1`, `rank2`, `rank3`)
-- L2 boost when the top-ranked category is confirmed
-
-This makes retrieval more realistic than plain cosine similarity on food names.
+Each step has `example_input.json` and `example_output.json` in its directory defining its interface contract.
 
 ---
 
-## Portion And Matching Logic
+## User Calibration
 
-The repo currently resolves portions and matching through several layers.
+The system learns from corrections made in CLI mode.
 
-### Extraction adds
+When a user corrects a vague item to a preferred amount (e.g. "a portion of noodles" → 500g), the system stores that preference in `data/calibrations/user_prefs.json`. Future runs reuse the stored amount automatically.
 
-- `item_name`
-- `quantity_raw`
-- `quantity_parsed`
-- `unit_hint`
-- `description`
-- `category_ranks`
-
-### Ontology filter adds
-
-- category hints (`cat_l1`, `cat_l2`, ranked L1 list)
-- portion hints resolved from:
-  - user calibrations
-  - ontology defaults
-  - category-level defaults
-  - flat portion defaults
-
-### Reranker then does
-
-- pick the best candidate
-- use the resolved portion hint unless explicit grams / ml were said
-- calculate final nutrition totals from per-100g macros
-
-If the match is uncertain, confidence is surfaced in the output instead of silently pretending certainty.
+Calibrations are stored per user and per food item, and feed back into the reranker's portion estimation.
 
 ---
-
-## User Calibration (Learning Engine)
-
-The system learns from corrections.
-
-If a user keeps correcting the same vague item to a preferred amount, the system stores that preference in:
-
-- `data/calibrations/user_prefs.json`
-
-Example:
-
-- `a portion of noodles` gets corrected to `500g`
-- future runs can reuse that amount automatically
-
-Calibrations are stored per user and per food item.
-
----
-
-## Database / Persistence
-
-The project also stores meals persistently in SQLite.
-
-Current database location:
-
-- `data/sayfit_meals.db`
-
-The database layer stores:
-
-- users
-- meals
-- meal items
-- calibrations
-- user profiles
-- daily target fields / macro goals
-
-So the repo is already set up for meal history and not just one-shot terminal calculations.
-
----
-
 
 ## Configuration
 
-All settings are in `config.py` and can be overridden via `.env`:
+All settings live in `config.py` and can be overridden via `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GROQ_API_KEY` | (optional, required for Groq mode) | Groq API key |
-| `OPENAI_API_KEY` | (optional) | OpenAI API key |
+| `GROQ_API_KEY` | — | Groq API key (required for default mode) |
+| `OPENAI_API_KEY` | — | OpenAI API key (optional) |
+| `SPOONACULAR_API_KEY` | — | Spoonacular API key (optional, for recipe suggestions) |
+| `LANGFUSE_PUBLIC_KEY` | — | Langfuse public key (optional, for LLM tracing) |
+| `LANGFUSE_SECRET_KEY` | — | Langfuse secret key (optional, for LLM tracing) |
 | `EXTRACTION_MODEL` | `llama-3.3-70b-versatile` | Groq extraction model |
 | `REASONING_MODEL` | `llama-3.3-70b-versatile` | Groq reasoning model |
 | `OPENAI_EXTRACTION_MODEL` | `gpt-4o-mini` | OpenAI extraction model |
@@ -422,21 +357,49 @@ All settings are in `config.py` and can be overridden via `.env`:
 
 ---
 
-## Output And Review Flow
+## Project Structure
 
-The main CLI does not just print a number and exit.
-
-After the pipeline runs, the user can:
-
-- review a table of items + matches + grams + macros
-- see total calories / protein / fat / carbs
-- inspect low-confidence matches
-- edit amounts
-- remove items
-- add missed foods
-- save corrections for future runs
-
-That makes the system much less of a black box and much easier to iterate on.
+```
+sayfit-alpha/
+├── api/                              # FastAPI layer
+│   ├── main.py                       # App, lifespan checks, core endpoints, Prometheus metrics
+│   ├── schemas.py                    # Pydantic request/response models
+│   ├── transcribe.py                 # POST /transcribe — Whisper transcription endpoint
+│   └── recipes.py                    # POST /recipes/* — Step 6 recipe endpoints
+│
+├── step0_voice_input/                # Audio recording + Whisper transcription (CLI only)
+├── step1_extraction/                 # LLM food item extraction
+├── step1_5_ontology_filter/          # Category prediction + portion hint resolution
+├── step2_retrieval/                  # FAISS candidate retrieval
+├── step3_reranker/                   # Best match selection + macro calculation
+├── step4_output/                     # Terminal table formatter (CLI only)
+├── step5_database/                   # SQLite persistence layer
+├── step6_recipe/                     # Recipe suggestion module
+│
+├── data/                             # Data files — see "Before You Start"
+│   ├── combined_final.csv            # Combined USDA + OFF food dataset
+│   ├── food_ontology_300.json        # 300-category food ontology
+│   ├── portion_defaults.json         # Fallback portion sizes
+│   ├── faiss_index/                  # FAISS index — from sayfit-data-repo (required)
+│   ├── kaggle_recipes.duckdb         # Recipe DB — auto-downloaded on first use
+│   ├── calibrations/                 # Per-user correction history
+│   └── sayfit_meals.db               # SQLite meal log — created on startup
+│
+├── tests/
+│   ├── unit/                         # CI: mocked retriever, no FAISS needed
+│   └── integration/                  # Local only: requires real FAISS index + API key
+│
+├── prometheus/
+│   └── prometheus.yml                # Prometheus scrape config
+│
+├── main.py                           # CLI entry point
+├── config.py                         # Paths, env vars, feature flags
+├── llm_client.py                     # Groq / OpenAI / Ollama client factory
+├── Dockerfile
+├── docker-compose.yml                # API + Prometheus + Grafana
+├── UI_README.md                      # Frontend integration guide (endpoints, TypeScript types)
+└── .github/workflows/ci.yml          # CI: lint (ruff) + unit tests + docker build check
+```
 
 ---
 
@@ -444,29 +407,13 @@ That makes the system much less of a black box and much easier to iterate on.
 
 | Issue | Solution |
 |-------|----------|
-| `FAISS index not found` | Run `python main.py --build-index` |
-| `food_meta.pkl` or `food.index` missing | Rebuild the index in `data/faiss_index/` |
-| `GROQ_API_KEY not set` | Add your key to `.env` as `GROQ_API_KEY=...` |
-| You want local testing without API calls | Use `--no-llm` or `--locllm` |
-| `combined_final.csv` not found | Place it under `data/combined_final.csv` for the current index builder |
-| Whisper too slow | Use a smaller model, e.g. `WHISPER_MODEL=tiny` |
-| Microphone not found | Check that `sounddevice` can see your microphone |
-| Wrong food matched | Correct it interactively so the calibration layer can learn |
-
----
-
-## Summary
-
-This repo contains a working, modular nutrition logging system with:
-
-- voice, text, and JSON input modes
-- LLM extraction
-- ontology-guided retrieval
-- reranking and portion estimation
-- terminal review and correction
-- calibration memory
-- SQLite meal persistence
-- notebook / EDA support
-
-If you just want to use it, run `python main.py`.
-If you want to debug or improve it, each step can be run on its own.
+| Container exits on startup | Run `docker compose logs api` — almost always a missing FAISS index |
+| `FAISS index not found` | Copy `data/faiss_index/` from sayfit-data-repo (see "Before You Start") |
+| `food_meta.pkl` or `food.index` missing | Both files must be present in `data/faiss_index/` as a matched pair |
+| `GROQ_API_KEY not set` | Add the key to `.env` |
+| Whisper transcription slow | Set `WHISPER_MODEL=tiny` in `.env` |
+| First `/transcribe` call is slow | Normal — Whisper loads into memory on first call (~5s). Subsequent calls are fast. |
+| Wrong food matched | Use `PATCH /meals/{uid}/items/{item_id}` to correct the portion; CLI mode saves the correction for future runs |
+| `source: "spoonacular"` returns 400 | Add `SPOONACULAR_API_KEY` to `.env`; use `"kaggle"` as a keyless fallback |
+| Kaggle DB downloading every time | It should only download once to `data/kaggle_recipes.duckdb` — check write permissions on `data/` |
+| Microphone not found (CLI) | Check that `sounddevice` can see your mic; voice recording does not work inside Docker |
